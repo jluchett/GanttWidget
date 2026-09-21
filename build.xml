@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="gantt-fleet-app" default="war" basedir=".">
+    <property name="src.dir" value="src" />
+    <property name="web.dir" value="WebContent" />
+    <property name="build.dir" value="build" />
+    <property name="classes.dir" value="${build.dir}/WEB-INF/classes" />
+    <property name="dist.dir" value="dist" />
+    <property name="war.name" value="gantt-fleet.war" />
+    
+    <!-- Ruta al directorio de instalación de Tomcat 9 -->
+    <property name="tomcat.home" value="/opt/tomcat9" />
+
+    <path id="classpath">
+        <fileset dir="${web.dir}/WEB-INF/lib" includes="*.jar" />
+        <fileset dir="${tomcat.home}/lib" includes="servlet-api.jar,jsp-api.jar,el-api.jar" />
+    </path>
+
+    <target name="clean">
+        <delete dir="${build.dir}" />
+        <delete dir="${dist.dir}" />
+    </target>
+
+    <target name="init" depends="clean">
+        <mkdir dir="${classes.dir}" />
+        <mkdir dir="${dist.dir}" />
+    </target>
+
+    <target name="compile" depends="init">
+        <javac srcdir="${src.dir}" destdir="${classes.dir}" includeantruntime="false"
+               source="1.8" target="1.8" encoding="UTF-8" classpathref="classpath" debug="true" />
+    </target>
+
+    <target name="war" depends="compile">
+        <copy todir="${build.dir}">
+            <fileset dir="${web.dir}" />
+        </copy>
+        <war destfile="${dist.dir}/${war.name}" webxml="${web.dir}/WEB-INF/web.xml">
+            <fileset dir="${build.dir}" />
+        </war>
+        <echo message="Archivo WAR generado con exito en ${dist.dir}/${war.name}" />
+    </target>
+</project>
