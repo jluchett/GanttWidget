@@ -1,0 +1,11 @@
+{
+  "java.project.referencedLibraries": [
+    "lib/**/*.jar",
+    "WebContent/WEB-INF/lib/jackson-annotations-2.13.4.jar",
+    "WebContent/WEB-INF/lib/jackson-core-2.13.4.jar",
+    "WebContent/WEB-INF/lib/jackson-databind-2.13.4.2.jar",
+    "WebContent/WEB-INF/lib/jackson-datatype-jsr310-2.13.4.jar",
+    "WebContent/WEB-INF/lib/javax.faces-2.3.9.jar",
+    "WebContent/WEB-INF/lib/javax.annotation-api-1.3.2.jar"
+  ]
+}

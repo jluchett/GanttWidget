@@ -10,6 +10,7 @@ import javax.faces.bean.ManagedBean;
 import javax.faces.bean.ViewScoped;
 import java.io.Serializable;
 
+@SuppressWarnings("deprecation")
 @ManagedBean
 @ViewScoped
 public class FleetGanttBean implements Serializable {
