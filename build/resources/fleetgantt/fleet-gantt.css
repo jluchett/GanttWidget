@@ -161,7 +161,7 @@
 /* Barras de tarea */
 .fg-bar {
     position: absolute;
-    top: 6px;
+    top: 12px;
     height: 32px;
     border-radius: 5px;
     color: #ffffff;
@@ -177,6 +177,8 @@
     text-overflow: ellipsis;
     box-shadow: 0 1px 3px rgba(0,0,0,0.15);
     transition: transform 0.15s ease, box-shadow 0.15s ease;
+    justify-content: center; /* <-- Centra el texto en el medio de la barra */
+    text-align: center
 }
 
 .fg-bar:hover {
@@ -208,6 +210,15 @@
     );
     box-shadow: 0 0 10px rgba(211, 47, 47, 0.6) !important;
     animation: fg-pulse-conflict 2s infinite ease-in-out;
+}
+
+/* Barra con solapamiento / altura reducida */
+.fg-bar.fg-bar-compact {
+    height: 20px !important;
+    line-height: 20px !important;
+    font-size: 11px !important;
+    padding: 0 6px !important;
+    border-radius: 4px !important;
 }
 
 @keyframes fg-pulse-conflict {

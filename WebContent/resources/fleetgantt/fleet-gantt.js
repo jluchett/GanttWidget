@@ -273,15 +273,13 @@ class FleetGanttViewer {
             resourcesByGroup[grp].push(r);
         });
 
-        // 3. Renderizar Filas de forma segura con appendChild (sin destruir event listeners)
+        // 3. Renderizar Filas
         Object.keys(resourcesByGroup).forEach(groupName => {
-            // Grupo en el sidebar
             const groupDiv = document.createElement('div');
             groupDiv.className = 'fg-resource-group';
             groupDiv.innerText = groupName;
             sidebar.appendChild(groupDiv);
 
-            // Separador de grupo en el timeline
             const spacer = document.createElement('div');
             spacer.className = 'fg-track-group-spacer';
             tracks.appendChild(spacer);
@@ -293,11 +291,12 @@ class FleetGanttViewer {
                     resTasks = resTasks.filter(t => t.status === this.filterStatus);
                 }
 
-                // Sub-carriles si hay solapamientos
                 const numLanes = this.assignLanes(resTasks);
-                const rowHeight = numLanes * 38 + 6;
+                const isMultiLane = numLanes > 1;
+                const laneStep = 24;
+                const rowHeight = isMultiLane ? (numLanes * laneStep + 8) : 44;
 
-                // Fila del recurso en sidebar
+                // Fila en el sidebar
                 const resRow = document.createElement('div');
                 resRow.className = 'fg-resource-row';
                 resRow.style.height = `${rowHeight}px`;
@@ -305,7 +304,7 @@ class FleetGanttViewer {
                 resRow.innerText = resource.name;
                 sidebar.appendChild(resRow);
 
-                // Fila del track en timeline
+                // Fila en el timeline
                 const trackRow = document.createElement('div');
                 trackRow.className = 'fg-track-row';
                 trackRow.style.height = `${rowHeight}px`;
@@ -320,18 +319,33 @@ class FleetGanttViewer {
 
                     const leftPx = leftHours * this.hourWidth;
                     const widthPx = Math.max(durationHours * this.hourWidth, 24);
-                    const topPx = (task._lane || 0) * 38 + 4;
+
+                    // ========================================================
+                    // CENTRADO EXCLUSIVO PARA TAREAS SIN CONFLICTO
+                    // ========================================================
+                    const isConflict = Boolean(task.hasConflict);
+                    const barHeight = isConflict ? 20 : 32;
+
+                    let topPx;
+                    if (isConflict) {
+                        // Las tareas que colisionan se ubican en sus sub-carriles
+                        topPx = (task._lane || 0) * laneStep + 4;
+                    } else {
+                        // Las tareas SIN conflicto se centran verticalmente en la fila
+                        topPx = Math.round((rowHeight - barHeight) / 2);
+                    }
 
                     const bar = document.createElement('div');
-                    bar.className = `fg-bar fg-status-${task.status} ${task.hasConflict ? 'fg-has-conflict' : ''}`;
+                    bar.className = `fg-bar fg-status-${task.status} ${isConflict ? 'fg-has-conflict fg-bar-compact' : ''}`;
                     bar.style.left = `${leftPx}px`;
                     bar.style.width = `${widthPx}px`;
                     bar.style.top = `${topPx}px`;
+                    bar.style.height = `${barHeight}px`;
 
-                    const conflictIcon = task.hasConflict ? '⚠️ ' : '';
+                    const conflictIcon = isConflict ? '⚠️ ' : '';
                     bar.innerHTML = `${conflictIcon}${task.name}`;
 
-                    // Asignación de eventos garantizada
+                    // Eventos
                     bar.addEventListener('mouseenter', (e) => this.showTooltip(e, task, resource));
                     bar.addEventListener('mousemove', (e) => this.moveTooltip(e));
                     bar.addEventListener('mouseleave', () => this.hideTooltip());
@@ -350,11 +364,19 @@ class FleetGanttViewer {
         if (!tt) return;
         const d = task.details || {};
 
-        let conflictMsg = task.hasConflict 
-            ? `<div style="color:#ff6b6b;font-weight:bold;margin-bottom:4px;">⚠️ Conflicto: Solapamiento detectado</div>` 
+        const conflictMsg = task.hasConflict 
+            ? '<div style="color:#ff6b6b;font-weight:bold;margin-bottom:4px;">⚠️ Conflicto: Solapamiento detectado</div>' 
             : '';
 
         const statusLabel = (task.status || '').replace('_', ' ').toUpperCase();
+
+        const rutaHtml = (d.origen || d.destino) 
+            ? `<div><strong>Ruta:</strong> ${d.origen || 'N/A'} &rarr; ${d.destino || 'N/A'}</div>` 
+            : '';
+        const conductorHtml = d.conductor ? `<div><strong>Conductor:</strong> ${d.conductor}</div>` : '';
+        const plataformaHtml = d.plataforma ? `<div><strong>Plataforma:</strong> ${d.plataforma}</div>` : '';
+        const tipoHtml = d.tipo ? `<div><strong>Tipo:</strong> ${d.tipo}</div>` : '';
+        const obsHtml = d.observaciones ? `<div style="color:#f0883e;margin-top:3px;"><em>Obs: ${d.observaciones}</em></div>` : '';
 
         tt.innerHTML = `
             ${conflictMsg}
@@ -363,11 +385,11 @@ class FleetGanttViewer {
             </div>
             <div><strong>Recurso:</strong> ${resource.name}</div>
             <div><strong>Horario:</strong> ${this.formatDate(task.start)} &rarr; ${this.formatDate(task.end)}</div>
-            ${d.origen || d.destino ? `<div><strong>Ruta:</strong> ${d.origen || 'N/A'} &rarr; ${d.destino || 'N/A'}</div>` : ''}
-            ${d.conductor ? `<div><strong>Conductor:</strong> ${d.conductor}</div>` : ''}
-            ${d.plataforma ? `<div><strong>Plataforma:</strong> ${d.plataforma}</div>` : ''}
-            ${d.tipo ? `<div><strong>Tipo:</strong> ${d.tipo}</div>` : ''}
-            ${d.observaciones ? `<div style="color:#f0883e;margin-top:3px;"><em>Obs: ${d.observaciones}</em></div>` : ''}
+            ${rutaHtml}
+            ${conductorHtml}
+            ${plataformaHtml}
+            ${tipoHtml}
+            ${obsHtml}
         `;
         tt.style.display = 'block';
         this.moveTooltip(e);
