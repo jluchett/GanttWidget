@@ -138,7 +138,7 @@ class FleetGanttViewer {
 
         const overlay = document.getElementById(`${cId}_modalOverlay`);
         document.getElementById(`${cId}_modalClose`).addEventListener('click', () => overlay.style.display = 'none');
-        overlay.addEventListener('click', (e) => { if(e.target === overlay) overlay.style.display = 'none'; });
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.style.display = 'none'; });
     }
 
     computeTimelineBounds() {
@@ -157,12 +157,10 @@ class FleetGanttViewer {
             maxTime = Date.now() + 86400000;
         }
 
-        // Fijar el inicio a las 00:00 del primer día de operaciones
         const start = new Date(minTime);
         start.setHours(0, 0, 0, 0);
         this.startDate = start;
 
-        // Fijar el fin con margen de horas hacia adelante
         const end = new Date(maxTime);
         end.setHours(end.getHours() + 4, 0, 0, 0);
         this.endDate = end;
@@ -198,7 +196,6 @@ class FleetGanttViewer {
         });
     }
 
-    // Distribuye las tareas de un recurso en sub-carriles para que no se tapen
     assignLanes(taskList) {
         taskList.sort((a, b) => this.parseDate(a.start).getTime() - this.parseDate(b.start).getTime());
         const laneEndTimes = [];
@@ -276,10 +273,18 @@ class FleetGanttViewer {
             resourcesByGroup[grp].push(r);
         });
 
-        // 3. Renderizar Filas con soporte Multi-Lane
+        // 3. Renderizar Filas de forma segura con appendChild (sin destruir event listeners)
         Object.keys(resourcesByGroup).forEach(groupName => {
-            sidebar.innerHTML += `<div class="fg-resource-group">${groupName}</div>`;
-            tracks.innerHTML += `<div class="fg-track-group-spacer"></div>`;
+            // Grupo en el sidebar
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'fg-resource-group';
+            groupDiv.innerText = groupName;
+            sidebar.appendChild(groupDiv);
+
+            // Separador de grupo en el timeline
+            const spacer = document.createElement('div');
+            spacer.className = 'fg-track-group-spacer';
+            tracks.appendChild(spacer);
 
             resourcesByGroup[groupName].forEach(resource => {
                 let resTasks = this.rawSchedule.tasks.filter(t => t.resourceId === resource.id);
@@ -288,11 +293,11 @@ class FleetGanttViewer {
                     resTasks = resTasks.filter(t => t.status === this.filterStatus);
                 }
 
-                // Calcular sub-carriles necesarios si hay solapamiento
+                // Sub-carriles si hay solapamientos
                 const numLanes = this.assignLanes(resTasks);
                 const rowHeight = numLanes * 38 + 6;
 
-                // Fila en el sidebar
+                // Fila del recurso en sidebar
                 const resRow = document.createElement('div');
                 resRow.className = 'fg-resource-row';
                 resRow.style.height = `${rowHeight}px`;
@@ -300,7 +305,7 @@ class FleetGanttViewer {
                 resRow.innerText = resource.name;
                 sidebar.appendChild(resRow);
 
-                // Fila en el timeline
+                // Fila del track en timeline
                 const trackRow = document.createElement('div');
                 trackRow.className = 'fg-track-row';
                 trackRow.style.height = `${rowHeight}px`;
@@ -326,6 +331,7 @@ class FleetGanttViewer {
                     const conflictIcon = task.hasConflict ? '⚠️ ' : '';
                     bar.innerHTML = `${conflictIcon}${task.name}`;
 
+                    // Asignación de eventos garantizada
                     bar.addEventListener('mouseenter', (e) => this.showTooltip(e, task, resource));
                     bar.addEventListener('mousemove', (e) => this.moveTooltip(e));
                     bar.addEventListener('mouseleave', () => this.hideTooltip());
@@ -341,22 +347,26 @@ class FleetGanttViewer {
 
     showTooltip(e, task, resource) {
         const tt = document.getElementById(`${this.containerId}_tooltip`);
+        if (!tt) return;
         const d = task.details || {};
 
         let conflictMsg = task.hasConflict 
             ? `<div style="color:#ff6b6b;font-weight:bold;margin-bottom:4px;">⚠️ Conflicto: Solapamiento detectado</div>` 
             : '';
 
+        const statusLabel = (task.status || '').replace('_', ' ').toUpperCase();
+
         tt.innerHTML = `
             ${conflictMsg}
             <div style="font-weight:bold;font-size:13px;border-bottom:1px solid #444;padding-bottom:3px;margin-bottom:4px;">
-                ${task.name} (${task.status.toUpperCase()})
+                ${task.name} (${statusLabel})
             </div>
             <div><strong>Recurso:</strong> ${resource.name}</div>
             <div><strong>Horario:</strong> ${this.formatDate(task.start)} &rarr; ${this.formatDate(task.end)}</div>
-            ${d.origen ? `<div><strong>Ruta:</strong> ${d.origen} &rarr; ${d.destino || '?'}</div>` : ''}
+            ${d.origen || d.destino ? `<div><strong>Ruta:</strong> ${d.origen || 'N/A'} &rarr; ${d.destino || 'N/A'}</div>` : ''}
             ${d.conductor ? `<div><strong>Conductor:</strong> ${d.conductor}</div>` : ''}
             ${d.plataforma ? `<div><strong>Plataforma:</strong> ${d.plataforma}</div>` : ''}
+            ${d.tipo ? `<div><strong>Tipo:</strong> ${d.tipo}</div>` : ''}
             ${d.observaciones ? `<div style="color:#f0883e;margin-top:3px;"><em>Obs: ${d.observaciones}</em></div>` : ''}
         `;
         tt.style.display = 'block';
@@ -365,12 +375,14 @@ class FleetGanttViewer {
 
     moveTooltip(e) {
         const tt = document.getElementById(`${this.containerId}_tooltip`);
+        if (!tt) return;
         tt.style.left = `${e.clientX + 15}px`;
         tt.style.top = `${e.clientY + 15}px`;
     }
 
     hideTooltip() {
-        document.getElementById(`${this.containerId}_tooltip`).style.display = 'none';
+        const tt = document.getElementById(`${this.containerId}_tooltip`);
+        if (tt) tt.style.display = 'none';
     }
 
     openTaskModal(task, resource) {
