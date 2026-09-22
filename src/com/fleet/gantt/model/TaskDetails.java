@@ -29,7 +29,7 @@ public class TaskDetails implements Serializable {
         this.destino = destino;
         this.conductor = conductor;
         this.plataforma = plataforma;
-        this.tipo = tipo;
+        this.tipo = tipo; // ej. "Viaje", "Mantenimiento", "Inspección"
         this.observaciones = observaciones;
     }
 

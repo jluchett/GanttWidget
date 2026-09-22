@@ -1,41 +1,53 @@
 package com.fleet.gantt.bean;
 
-import com.fleet.gantt.model.*;
+import com.fleet.gantt.model.FleetSchedule;
 import com.fleet.gantt.service.FleetConflictService;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
-import javax.annotation.PostConstruct;
 import javax.faces.bean.ManagedBean;
 import javax.faces.bean.ViewScoped;
 import java.io.Serializable;
 
 @SuppressWarnings("deprecation")
-@ManagedBean
+@ManagedBean(name = "fleetGanttBean")
 @ViewScoped
 public class FleetGanttBean implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     private String fleetScheduleJson;
     private final FleetConflictService conflictService = new FleetConflictService();
 
-    @PostConstruct
+    public FleetGanttBean() {
+        init();
+    }
+
     public void init() {
-        // Aquí puedes cargar el JSON desde BD, un EJB o WebService
         String rawJson = getSampleJsonPayload();
-        
+
         try {
             ObjectMapper mapper = new ObjectMapper();
             mapper.registerModule(new JavaTimeModule());
-            
+
+            // 1. CRÍTICO: Desactivar serialización de fechas como arrays numéricos
+            mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+            // 2. Tolerar atributos desconocidos
+            mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
             FleetSchedule schedule = mapper.readValue(rawJson, FleetSchedule.class);
-            
-            // Detectar y enriquecer conflictos en Java
+
+            // Detectar solapamientos en Java
             conflictService.detectAndMarkConflicts(schedule.getTasks());
-            
+
+            // Serializar de vuelta a JSON con formato ISO limpio
             this.fleetScheduleJson = mapper.writeValueAsString(schedule);
+
         } catch (Exception e) {
             e.printStackTrace();
-            this.fleetScheduleJson = rawJson; // fallback
+            this.fleetScheduleJson = rawJson;
         }
     }
 
@@ -44,7 +56,6 @@ public class FleetGanttBean implements Serializable {
     }
 
     private String getSampleJsonPayload() {
-        // Retorna el JSON proporcionado por el usuario
         return "{\n" +
                "  \"resources\": [\n" +
                "    {\"id\": \"T0005\", \"name\": \"T0005 - 0569CSR\", \"type\": \"tractor\", \"group\": \"TRACTORES\"},\n" +

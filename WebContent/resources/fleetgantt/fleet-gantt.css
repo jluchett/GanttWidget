@@ -77,7 +77,6 @@
 }
 
 .fg-resource-row {
-    height: 44px;
     display: flex;
     align-items: center;
     padding: 0 12px;
@@ -87,6 +86,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    box-sizing: border-box;
 }
 
 .fg-resource-group {
@@ -128,10 +128,18 @@
 
 .fg-tick-label {
     position: absolute;
-    top: 14px;
+    top: 10px;
     font-size: 11px;
     color: #656d76;
     transform: translateX(-50%);
+    text-align: center;
+    line-height: 1.3;
+}
+
+.fg-tick-label:first-child {
+    transform: translateX(0);
+    text-align: left;
+    padding-left: 6px;
 }
 
 .fg-tracks {
@@ -139,9 +147,9 @@
 }
 
 .fg-track-row {
-    height: 44px;
     position: relative;
     border-bottom: 1px solid #f0f2f5;
+    box-sizing: border-box;
 }
 
 .fg-track-group-spacer {

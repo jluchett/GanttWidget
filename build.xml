@@ -39,33 +39,5 @@
         </war>
         <echo message="Archivo WAR generado con exito en ${dist.dir}/${war.name}" />
     </target>
-
-    <!-- Tarea para descargar automáticamente todas las dependencias requeridas -->
-    <target name="download-libs">
-        <property name="lib.dir" value="${web.dir}/WEB-INF/lib" />
-        <mkdir dir="${lib.dir}" />
-
-        <!-- 1. JSF 2.3 (Mojarra) -->
-        <get src="https://repo1.maven.org/maven2/org/glassfish/javax.faces/2.3.9/javax.faces-2.3.9.jar"
-             dest="${lib.dir}/javax.faces-2.3.9.jar" skipexisting="true" />
-
-        <!-- 2. Jackson Annotations -->
-        <get src="https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.13.4/jackson-annotations-2.13.4.jar"
-             dest="${lib.dir}/jackson-annotations-2.13.4.jar" skipexisting="true" />
-
-        <!-- 3. Jackson Core -->
-        <get src="https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.13.4/jackson-core-2.13.4.jar"
-             dest="${lib.dir}/jackson-core-2.13.4.jar" skipexisting="true" />
-
-        <!-- 4. Jackson Databind -->
-        <get src="https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.13.4.2/jackson-databind-2.13.4.2.jar"
-             dest="${lib.dir}/jackson-databind-2.13.4.2.jar" skipexisting="true" />
-
-        <!-- 5. Jackson JavaTime (JSR-310 para LocalDate / LocalDateTime) -->
-        <get src="https://repo1.maven.org/maven2/com/fasterxml/jackson/datatype/jackson-datatype-jsr310/2.13.4/jackson-datatype-jsr310-2.13.4.jar"
-             dest="${lib.dir}/jackson-datatype-jsr310-2.13.4.jar" skipexisting="true" />
-
-        <echo message="Librerias descargadas exitosamente en ${lib.dir}" />
-    </target>
     
 </project>

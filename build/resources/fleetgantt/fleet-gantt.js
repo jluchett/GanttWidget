@@ -3,17 +3,39 @@ class FleetGanttViewer {
         this.containerId = config.containerId;
         this.container = document.getElementById(this.containerId);
         this.rawSchedule = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
-        this.zoomHours = config.defaultZoomHours || 2; // Granularidad por defecto (2h)
-        this.hourWidth = 60; // Ancho en px por cada hora
+        this.zoomHours = config.defaultZoomHours || 2;
+        this.hourWidth = 60;
         this.filterType = 'ALL';
         this.filterStatus = 'ALL';
         this.filterText = '';
         this.onlyConflicts = false;
 
         this.initDOM();
-        this.computeTimelineBounds();
         this.detectClientConflicts();
+        this.computeTimelineBounds();
         this.render();
+    }
+
+    // Parsea fechas tanto si vienen como Array [YYYY, M, D, H, m], String ISO o Timestamp
+    parseDate(val) {
+        if (!val) return new Date();
+        if (Array.isArray(val)) {
+            return new Date(val[0], (val[1] || 1) - 1, val[2] || 1, val[3] || 0, val[4] || 0, val[5] || 0);
+        }
+        if (typeof val === 'number') {
+            return new Date(val);
+        }
+        if (typeof val === 'string') {
+            return new Date(val.replace(' ', 'T'));
+        }
+        return new Date(val);
+    }
+
+    formatDate(val) {
+        const d = this.parseDate(val);
+        if (isNaN(d.getTime())) return '';
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
 
     initDOM() {
@@ -75,7 +97,6 @@ class FleetGanttViewer {
 
     bindEvents() {
         const cId = this.containerId;
-        // Botones de Zoom
         this.container.querySelectorAll('.fg-toolbar [data-zoom]').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 this.container.querySelectorAll('.fg-toolbar [data-zoom]').forEach(b => b.classList.remove('active'));
@@ -86,7 +107,6 @@ class FleetGanttViewer {
             });
         });
 
-        // Filtros
         document.getElementById(`${cId}_typeFilter`).addEventListener('change', (e) => {
             this.filterType = e.target.value;
             this.render();
@@ -116,7 +136,6 @@ class FleetGanttViewer {
             dlAnchor.click();
         });
 
-        // Modal close
         const overlay = document.getElementById(`${cId}_modalOverlay`);
         document.getElementById(`${cId}_modalClose`).addEventListener('click', () => overlay.style.display = 'none');
         overlay.addEventListener('click', (e) => { if(e.target === overlay) overlay.style.display = 'none'; });
@@ -127,10 +146,10 @@ class FleetGanttViewer {
         let maxTime = -Infinity;
 
         this.rawSchedule.tasks.forEach(t => {
-            const s = new Date(t.start).getTime();
-            const e = new Date(t.end).getTime();
-            if (s < minTime) minTime = s;
-            if (e > maxTime) maxTime = e;
+            const s = this.parseDate(t.start).getTime();
+            const e = this.parseDate(t.end).getTime();
+            if (!isNaN(s) && s < minTime) minTime = s;
+            if (!isNaN(e) && e > maxTime) maxTime = e;
         });
 
         if (minTime === Infinity) {
@@ -138,16 +157,17 @@ class FleetGanttViewer {
             maxTime = Date.now() + 86400000;
         }
 
-        // Redondear al inicio de hora
+        // Fijar el inicio a las 00:00 del primer día de operaciones
         const start = new Date(minTime);
-        start.setMinutes(0, 0, 0);
+        start.setHours(0, 0, 0, 0);
         this.startDate = start;
 
+        // Fijar el fin con margen de horas hacia adelante
         const end = new Date(maxTime);
         end.setHours(end.getHours() + 4, 0, 0, 0);
         this.endDate = end;
 
-        this.totalHours = Math.ceil((this.endDate.getTime() - this.startDate.getTime()) / 3600000);
+        this.totalHours = Math.max(24, Math.ceil((this.endDate.getTime() - this.startDate.getTime()) / 3600000));
     }
 
     detectClientConflicts() {
@@ -161,13 +181,13 @@ class FleetGanttViewer {
         Object.values(byResource).forEach(taskList => {
             for (let i = 0; i < taskList.length; i++) {
                 const t1 = taskList[i];
-                const s1 = new Date(t1.start).getTime();
-                const e1 = new Date(t1.end).getTime();
+                const s1 = this.parseDate(t1.start).getTime();
+                const e1 = this.parseDate(t1.end).getTime();
 
                 for (let j = i + 1; j < taskList.length; j++) {
                     const t2 = taskList[j];
-                    const s2 = new Date(t2.start).getTime();
-                    const e2 = new Date(t2.end).getTime();
+                    const s2 = this.parseDate(t2.start).getTime();
+                    const e2 = this.parseDate(t2.end).getTime();
 
                     if (s1 < e2 && s2 < e1) {
                         t1.hasConflict = true;
@@ -176,6 +196,33 @@ class FleetGanttViewer {
                 }
             }
         });
+    }
+
+    // Distribuye las tareas de un recurso en sub-carriles para que no se tapen
+    assignLanes(taskList) {
+        taskList.sort((a, b) => this.parseDate(a.start).getTime() - this.parseDate(b.start).getTime());
+        const laneEndTimes = [];
+
+        taskList.forEach(task => {
+            const s = this.parseDate(task.start).getTime();
+            const e = this.parseDate(task.end).getTime();
+
+            let placed = false;
+            for (let i = 0; i < laneEndTimes.length; i++) {
+                if (laneEndTimes[i] <= s) {
+                    task._lane = i;
+                    laneEndTimes[i] = e;
+                    placed = true;
+                    break;
+                }
+            }
+            if (!placed) {
+                task._lane = laneEndTimes.length;
+                laneEndTimes.push(e);
+            }
+        });
+
+        return Math.max(laneEndTimes.length, 1);
     }
 
     render() {
@@ -192,11 +239,11 @@ class FleetGanttViewer {
         header.style.width = `${timelineWidth}px`;
         tracks.style.width = `${timelineWidth}px`;
 
-        // 1. Render Encabezado de Horas
+        // 1. Render Encabezado y Guías Verticales
         for (let h = 0; h < this.totalHours; h += this.zoomHours) {
             const tickDate = new Date(this.startDate.getTime() + h * 3600000);
             const left = h * this.hourWidth;
-            
+
             const tick = document.createElement('div');
             tick.className = 'fg-grid-tick';
             tick.style.left = `${left}px`;
@@ -205,22 +252,20 @@ class FleetGanttViewer {
             const label = document.createElement('div');
             label.className = 'fg-tick-label';
             label.style.left = `${left}px`;
-            
-            const dayStr = tickDate.getDate() + '/' + (tickDate.getMonth() + 1);
-            const timeStr = String(tickDate.getHours()).padStart(2, '0') + ':00';
-            label.innerHTML = `<strong>${timeStr}</strong><br><span style="font-size:9px;color:#8c959f">${dayStr}</span>`;
+
+            const dayStr = `${String(tickDate.getDate()).padStart(2, '0')}/${String(tickDate.getMonth() + 1).padStart(2, '0')}`;
+            const timeStr = `${String(tickDate.getHours()).padStart(2, '0')}:00`;
+
+            label.innerHTML = `<strong>${timeStr}</strong><br><span style="font-size:10px;color:#656d76">${dayStr}</span>`;
             header.appendChild(label);
         }
 
-        // 2. Filtrar Recursos y Tareas
+        // 2. Filtrar Recursos
         const resourcesByGroup = {};
         this.rawSchedule.resources.forEach(r => {
-            // Filtro tipo
             if (this.filterType !== 'ALL' && r.type !== this.filterType) return;
-            // Filtro texto
             if (this.filterText && !r.name.toLowerCase().includes(this.filterText) && !r.id.toLowerCase().includes(this.filterText)) return;
-            
-            // Si el filtro "solo conflictos" está activo
+
             if (this.onlyConflicts) {
                 const hasConf = this.rawSchedule.tasks.some(t => t.resourceId === r.id && t.hasConflict);
                 if (!hasConf) return;
@@ -231,49 +276,59 @@ class FleetGanttViewer {
             resourcesByGroup[grp].push(r);
         });
 
-        // 3. Render Filas
+        // 3. Renderizar Filas con soporte Multi-Lane
         Object.keys(resourcesByGroup).forEach(groupName => {
-            // Cabecera de grupo
             sidebar.innerHTML += `<div class="fg-resource-group">${groupName}</div>`;
             tracks.innerHTML += `<div class="fg-track-group-spacer"></div>`;
 
             resourcesByGroup[groupName].forEach(resource => {
-                sidebar.innerHTML += `<div class="fg-resource-row" title="${resource.name}">${resource.name}</div>`;
+                let resTasks = this.rawSchedule.tasks.filter(t => t.resourceId === resource.id);
 
+                if (this.filterStatus !== 'ALL') {
+                    resTasks = resTasks.filter(t => t.status === this.filterStatus);
+                }
+
+                // Calcular sub-carriles necesarios si hay solapamiento
+                const numLanes = this.assignLanes(resTasks);
+                const rowHeight = numLanes * 38 + 6;
+
+                // Fila en el sidebar
+                const resRow = document.createElement('div');
+                resRow.className = 'fg-resource-row';
+                resRow.style.height = `${rowHeight}px`;
+                resRow.title = resource.name;
+                resRow.innerText = resource.name;
+                sidebar.appendChild(resRow);
+
+                // Fila en el timeline
                 const trackRow = document.createElement('div');
                 trackRow.className = 'fg-track-row';
+                trackRow.style.height = `${rowHeight}px`;
                 trackRow.setAttribute('data-resource-id', resource.id);
 
-                // Obtener tareas del recurso
-                const resTasks = this.rawSchedule.tasks.filter(t => t.resourceId === resource.id);
-
                 resTasks.forEach(task => {
-                    // Filtro estado
-                    if (this.filterStatus !== 'ALL' && task.status !== this.filterStatus) return;
-
-                    const tStart = new Date(task.start).getTime();
-                    const tEnd = new Date(task.end).getTime();
+                    const tStart = this.parseDate(task.start).getTime();
+                    const tEnd = this.parseDate(task.end).getTime();
 
                     const leftHours = (tStart - this.startDate.getTime()) / 3600000;
                     const durationHours = (tEnd - tStart) / 3600000;
 
                     const leftPx = leftHours * this.hourWidth;
-                    const widthPx = Math.max(durationHours * this.hourWidth, 14);
+                    const widthPx = Math.max(durationHours * this.hourWidth, 24);
+                    const topPx = (task._lane || 0) * 38 + 4;
 
                     const bar = document.createElement('div');
                     bar.className = `fg-bar fg-status-${task.status} ${task.hasConflict ? 'fg-has-conflict' : ''}`;
                     bar.style.left = `${leftPx}px`;
                     bar.style.width = `${widthPx}px`;
-                    
-                    const conflictBadge = task.hasConflict ? '⚠️ ' : '';
-                    bar.innerHTML = `${conflictBadge}${task.name}`;
+                    bar.style.top = `${topPx}px`;
 
-                    // Tooltip Events
+                    const conflictIcon = task.hasConflict ? '⚠️ ' : '';
+                    bar.innerHTML = `${conflictIcon}${task.name}`;
+
                     bar.addEventListener('mouseenter', (e) => this.showTooltip(e, task, resource));
                     bar.addEventListener('mousemove', (e) => this.moveTooltip(e));
                     bar.addEventListener('mouseleave', () => this.hideTooltip());
-
-                    // Click -> Modal
                     bar.addEventListener('click', () => this.openTaskModal(task, resource));
 
                     trackRow.appendChild(bar);
@@ -287,9 +342,9 @@ class FleetGanttViewer {
     showTooltip(e, task, resource) {
         const tt = document.getElementById(`${this.containerId}_tooltip`);
         const d = task.details || {};
-        
+
         let conflictMsg = task.hasConflict 
-            ? `<div style="color:#ff6b6b;font-weight:bold;margin-bottom:4px;">⚠️ Conflicto: Solapamiento en recurso</div>` 
+            ? `<div style="color:#ff6b6b;font-weight:bold;margin-bottom:4px;">⚠️ Conflicto: Solapamiento detectado</div>` 
             : '';
 
         tt.innerHTML = `
@@ -298,7 +353,7 @@ class FleetGanttViewer {
                 ${task.name} (${task.status.toUpperCase()})
             </div>
             <div><strong>Recurso:</strong> ${resource.name}</div>
-            <div><strong>Horario:</strong> ${task.start.replace('T',' ')} &rarr; ${task.end.replace('T',' ')}</div>
+            <div><strong>Horario:</strong> ${this.formatDate(task.start)} &rarr; ${this.formatDate(task.end)}</div>
             ${d.origen ? `<div><strong>Ruta:</strong> ${d.origen} &rarr; ${d.destino || '?'}</div>` : ''}
             ${d.conductor ? `<div><strong>Conductor:</strong> ${d.conductor}</div>` : ''}
             ${d.plataforma ? `<div><strong>Plataforma:</strong> ${d.plataforma}</div>` : ''}
@@ -322,13 +377,13 @@ class FleetGanttViewer {
         const cId = this.containerId;
         const d = task.details || {};
         document.getElementById(`${cId}_modalTitle`).innerText = task.name;
-        
+
         document.getElementById(`${cId}_modalBody`).innerHTML = `
             <div class="fg-modal-row"><span class="fg-modal-label">ID Tarea:</span><span>${task.id}</span></div>
             <div class="fg-modal-row"><span class="fg-modal-label">Estado:</span><span style="font-weight:bold">${task.status}</span></div>
             <div class="fg-modal-row"><span class="fg-modal-label">Recurso:</span><span>${resource.name} (${resource.type})</span></div>
-            <div class="fg-modal-row"><span class="fg-modal-label">Inicio:</span><span>${task.start}</span></div>
-            <div class="fg-modal-row"><span class="fg-modal-label">Fin:</span><span>${task.end}</span></div>
+            <div class="fg-modal-row"><span class="fg-modal-label">Inicio:</span><span>${this.formatDate(task.start)}</span></div>
+            <div class="fg-modal-row"><span class="fg-modal-label">Fin:</span><span>${this.formatDate(task.end)}</span></div>
             <div class="fg-modal-row"><span class="fg-modal-label">Origen:</span><span>${d.origen || 'N/A'}</span></div>
             <div class="fg-modal-row"><span class="fg-modal-label">Destino:</span><span>${d.destino || 'N/A'}</span></div>
             <div class="fg-modal-row"><span class="fg-modal-label">Conductor:</span><span>${d.conductor || 'N/A'}</span></div>
