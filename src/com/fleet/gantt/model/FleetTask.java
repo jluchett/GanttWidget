@@ -11,24 +11,21 @@ public class FleetTask implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private String id;
-    private String resourceId;
     private String name;
     private LocalDateTime start;
     private LocalDateTime end;
     private String status;
     private TaskDetails details;
 
-    // Control de conflictos / solapamientos
     private boolean hasConflict = false;
     private List<String> conflictingTaskIds = new ArrayList<>();
 
     public FleetTask() {
     }
 
-    public FleetTask(String id, String resourceId, String name, LocalDateTime start, 
+    public FleetTask(String id, String name, LocalDateTime start, 
                      LocalDateTime end, String status, TaskDetails details) {
         this.id = id;
-        this.resourceId = resourceId;
         this.name = name;
         this.start = start;
         this.end = end;
@@ -36,12 +33,8 @@ public class FleetTask implements Serializable {
         this.details = details;
     }
 
-    // Getters y Setters
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
-
-    public String getResourceId() { return resourceId; }
-    public void setResourceId(String resourceId) { this.resourceId = resourceId; }
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }

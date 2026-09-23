@@ -1,38 +1,54 @@
 package com.fleet.gantt.service;
 
 import com.fleet.gantt.model.FleetTask;
+import com.fleet.gantt.model.TaskDetails;
+
+import java.io.Serializable;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
-public class FleetConflictService {
+public class FleetConflictService implements Serializable {
 
-    /**
-     * Analiza las tareas y marca aquellas que se solapan en el tiempo para el mismo recurso.
-     */
+    private static final long serialVersionUID = 1L;
+
     public void detectAndMarkConflicts(List<FleetTask> tasks) {
-        // Agrupar tareas por recurso asignado
-        Map<String, List<FleetTask>> tasksByResource = tasks.stream()
-                .filter(t -> !"cancelado".equalsIgnoreCase(t.getStatus())) // Omitir canceladas
-                .collect(Collectors.groupingBy(FleetTask::getResourceId));
+        if (tasks == null || tasks.size() < 2) {
+            return;
+        }
 
-        for (List<FleetTask> resourceTasks : tasksByResource.values()) {
-            int n = resourceTasks.size();
-            for (int i = 0; i < n; i++) {
-                FleetTask t1 = resourceTasks.get(i);
-                for (int j = i + 1; j < n; j++) {
-                    FleetTask t2 = resourceTasks.get(j);
+        for (int i = 0; i < tasks.size(); i++) {
+            FleetTask t1 = tasks.get(i);
+            if ("cancelado".equalsIgnoreCase(t1.getStatus())) continue;
 
-                    // Condición de solapamiento temporal
-                    if (t1.getStart().isBefore(t2.getEnd()) && t2.getStart().isBefore(t1.getEnd())) {
-                        t1.setHasConflict(true);
+            for (int j = i + 1; j < tasks.size(); j++) {
+                FleetTask t2 = tasks.get(j);
+                if ("cancelado".equalsIgnoreCase(t2.getStatus())) continue;
+
+                // 1. Solapamiento temporal
+                boolean overlap = t1.getStart().isBefore(t2.getEnd()) && t2.getStart().isBefore(t1.getEnd());
+
+                // 2. Colisión si comparten tractor, plataforma o conductor
+                if (overlap && sharesAnyResource(t1.getDetails(), t2.getDetails())) {
+                    t1.setHasConflict(true);
+                    t2.setHasConflict(true);
+
+                    if (!t1.getConflictingTaskIds().contains(t2.getId())) {
                         t1.getConflictingTaskIds().add(t2.getId());
-
-                        t2.setHasConflict(true);
+                    }
+                    if (!t2.getConflictingTaskIds().contains(t1.getId())) {
                         t2.getConflictingTaskIds().add(t1.getId());
                     }
                 }
             }
         }
+    }
+
+    private boolean sharesAnyResource(TaskDetails d1, TaskDetails d2) {
+        if (d1 == null || d2 == null) return false;
+
+        if (d1.getTractor() != null && d1.getTractor().equals(d2.getTractor())) return true;
+        if (d1.getPlataforma() != null && d1.getPlataforma().equals(d2.getPlataforma())) return true;
+        if (d1.getConductor() != null && d1.getConductor().equals(d2.getConductor())) return true;
+
+        return false;
     }
 }
