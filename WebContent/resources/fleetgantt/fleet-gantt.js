@@ -167,7 +167,7 @@ class FleetGanttViewer {
         this.totalHours = Math.max(24, Math.ceil((this.endDate.getTime() - this.startDate.getTime()) / 3600000));
     }
 
-    // Detección de conflictos basada en colisión de recursos compartidos
+    // Detección general de colisión operativa de recursos cruzados
     detectClientConflicts() {
         const tasks = this.rawSchedule.tasks;
         for (let i = 0; i < tasks.length; i++) {
@@ -199,9 +199,8 @@ class FleetGanttViewer {
         }
     }
 
-    // Obtiene las tareas reales de un recurso y calcula dinámicamente los huecos "Libres"
+    // Obtiene las tareas reales de este recurso y rellena los huecos con "Disponible"
     buildResourceTimeline(resourceId) {
-        // 1. Tareas reales asociadas a este recurso
         const assigned = [];
         this.rawSchedule.tasks.forEach(t => {
             const d = t.details || {};
@@ -213,10 +212,8 @@ class FleetGanttViewer {
             }
         });
 
-        // 2. Orden cronológico
         assigned.sort((a, b) => this.parseDate(a.start).getTime() - this.parseDate(b.start).getTime());
 
-        // 3. Intervalos ocupados para calcular huecos
         const busyIntervals = [];
         assigned.forEach(t => {
             if (t.status === 'cancelado') return;
@@ -227,7 +224,6 @@ class FleetGanttViewer {
         });
         busyIntervals.sort((a, b) => a.start - b.start);
 
-        // Fusionar intervalos ocupados solapados
         const mergedBusy = [];
         busyIntervals.forEach(curr => {
             if (!mergedBusy.length) {
@@ -242,10 +238,9 @@ class FleetGanttViewer {
             }
         });
 
-        // 4. Generación dinámica de franjas "Libre"
         const result = [...assigned];
         let cursor = this.startDate.getTime();
-        const minGapMs = 15 * 60 * 1000; // Mínimo 15 minutos para dibujar un bloque libre
+        const minGapMs = 15 * 60 * 1000;
 
         mergedBusy.forEach((busy, idx) => {
             if (busy.start - cursor >= minGapMs) {
@@ -319,7 +314,7 @@ class FleetGanttViewer {
         header.style.width = `${timelineWidth}px`;
         tracks.style.width = `${timelineWidth}px`;
 
-        // 1. Render Encabezado y Guías Verticales
+        // 1. Encabezado
         for (let h = 0; h < this.totalHours; h += this.zoomHours) {
             const tickDate = new Date(this.startDate.getTime() + h * 3600000);
             const left = h * this.hourWidth;
@@ -359,7 +354,7 @@ class FleetGanttViewer {
             resourcesByGroup[grp].push(r);
         });
 
-        // 3. Renderizar Filas con proyección y cálculo de Libres
+        // 3. Renderizar Filas
         Object.keys(resourcesByGroup).forEach(groupName => {
             const groupDiv = document.createElement('div');
             groupDiv.className = 'fg-resource-group';
@@ -371,20 +366,42 @@ class FleetGanttViewer {
             tracks.appendChild(spacer);
 
             resourcesByGroup[groupName].forEach(resource => {
-                // Obtener tareas reales + bloques libres calculados
                 let resTasks = this.buildResourceTimeline(resource.id);
 
                 if (this.filterStatus !== 'ALL') {
                     resTasks = resTasks.filter(t => t.status === this.filterStatus);
                 }
 
-                // Sub-carriles para solapamientos
-                const numLanes = this.assignLanes(resTasks);
-                const isMultiLane = numLanes > 1;
-                const laneStep = 24;
-                const rowHeight = isMultiLane ? (numLanes * laneStep + 8) : 44;
+                // =========================================================================
+                // DETECCIÓN DE SOLAPAMIENTO EXCLUSIVO EN ESTE RECURSO (LOCAL OVERLAP)
+                // =========================================================================
+                const realTasks = resTasks.filter(t => !t.isFreeBlock && t.status !== 'cancelado');
+                const localOverlappingIds = new Set();
 
-                // Fila en el sidebar
+                for (let i = 0; i < realTasks.length; i++) {
+                    const t1 = realTasks[i];
+                    const s1 = this.parseDate(t1.start).getTime();
+                    const e1 = this.parseDate(t1.end).getTime();
+
+                    for (let j = i + 1; j < realTasks.length; j++) {
+                        const t2 = realTasks[j];
+                        const s2 = this.parseDate(t2.start).getTime();
+                        const e2 = this.parseDate(t2.end).getTime();
+
+                        if (s1 < e2 && s2 < e1) {
+                            localOverlappingIds.add(t1.id);
+                            localOverlappingIds.add(t2.id);
+                        }
+                    }
+                }
+
+                // Sub-carriles solo para tareas reales
+                const numLanes = this.assignLanes(realTasks);
+                const hasLocalCollisions = localOverlappingIds.size > 0;
+                const laneStep = 24;
+                const rowHeight = hasLocalCollisions ? (numLanes * laneStep + 8) : 44;
+
+                // Fila en sidebar
                 const resRow = document.createElement('div');
                 resRow.className = 'fg-resource-row';
                 resRow.style.height = `${rowHeight}px`;
@@ -392,7 +409,7 @@ class FleetGanttViewer {
                 resRow.innerText = resource.name;
                 sidebar.appendChild(resRow);
 
-                // Fila en el timeline
+                // Fila en timeline
                 const trackRow = document.createElement('div');
                 trackRow.className = 'fg-track-row';
                 trackRow.style.height = `${rowHeight}px`;
@@ -408,30 +425,46 @@ class FleetGanttViewer {
                     const leftPx = leftHours * this.hourWidth;
                     const widthPx = Math.max(durationHours * this.hourWidth, 24);
 
-                    const isConflict = Boolean(task.hasConflict);
-                    const barHeight = isConflict ? 20 : 32;
+                    // =========================================================================
+                    // REGLA: SOLO ES COMPACTA SI SE SOLAPA EN ESTE MISMO RECURSO
+                    // =========================================================================
+                    const hasLocalOverlap = localOverlappingIds.has(task.id);
+                    const isCompact = hasLocalOverlap; // <-- Solo compacta si colisiona en esta fila
+                    
+                    let barHeight;
+                    if (task.isFreeBlock) {
+                        barHeight = 26;
+                    } else {
+                        barHeight = isCompact ? 20 : 32;
+                    }
 
+                    // Posición vertical:
+                    // Si se solapa en esta fila -> va a su carril compacto
+                    // Si NO se solapa en esta fila -> se centra perfectamente en la fila
                     let topPx;
-                    if (isConflict) {
+                    if (isCompact) {
                         topPx = (task._lane || 0) * laneStep + 4;
                     } else {
                         topPx = Math.round((rowHeight - barHeight) / 2);
                     }
 
                     const bar = document.createElement('div');
-                    bar.className = `fg-bar fg-status-${task.status} ${isConflict ? 'fg-has-conflict fg-bar-compact' : ''}`;
+                    const conflictClass = task.hasConflict ? ' fg-has-conflict' : '';
+                    const compactClass = isCompact ? ' fg-bar-compact' : '';
+                    bar.className = `fg-bar fg-status-${task.status}${conflictClass}${compactClass}`;
+
                     bar.style.left = `${leftPx}px`;
                     bar.style.width = `${widthPx}px`;
                     bar.style.top = `${topPx}px`;
                     bar.style.height = `${barHeight}px`;
                     bar.setAttribute('data-task-id', task.id);
 
-                    const conflictIcon = isConflict ? '⚠️ ' : '';
+                    const conflictIcon = task.hasConflict ? '⚠️ ' : '';
                     bar.innerHTML = `${conflictIcon}${task.name}`;
 
-                    // Eventos: Tooltips, Modales y Resaltado sincronizado
+                    // Eventos
                     bar.addEventListener('mouseenter', (e) => {
-                        this.showTooltip(e, task, resource);
+                        this.showTooltip(e, task, resource, hasLocalOverlap);
                         this.highlightRelatedTasks(task.id, true);
                     });
                     bar.addEventListener('mousemove', (e) => this.moveTooltip(e));
@@ -453,14 +486,13 @@ class FleetGanttViewer {
         });
     }
 
-    // Ilumina las barras en todos los recursos que compartan el mismo ID de tarea
     highlightRelatedTasks(taskId, highlight) {
         if (!taskId || taskId.startsWith('free_')) return;
         const matchingBars = this.container.querySelectorAll(`[data-task-id="${taskId}"]`);
         matchingBars.forEach(b => b.classList.toggle('fg-bar-highlighted', highlight));
     }
 
-    showTooltip(e, task, resource) {
+    showTooltip(e, task, resource, hasLocalOverlap) {
         const tt = document.getElementById(`${this.containerId}_tooltip`);
         if (!tt) return;
         const d = task.details || {};
@@ -483,9 +515,15 @@ class FleetGanttViewer {
             return;
         }
 
-        const conflictMsg = task.hasConflict 
-            ? '<div style="color:#ff6b6b;font-weight:bold;margin-bottom:4px;">⚠️ Conflicto: Recurso solapado</div>' 
-            : '';
+        // Mensaje de conflicto descriptivo según dónde ocurre
+        let conflictMsg = '';
+        if (task.hasConflict) {
+            if (hasLocalOverlap) {
+                conflictMsg = '<div style="color:#ff6b6b;font-weight:bold;margin-bottom:4px;">⚠️ Conflicto: Solapamiento directo en este recurso</div>';
+            } else {
+                conflictMsg = '<div style="color:#f0883e;font-weight:bold;margin-bottom:4px;">⚠️ Aviso: Conflicto en otro recurso asociado (conductor o plataforma)</div>';
+            }
+        }
 
         const statusLabel = (task.status || '').replace('_', ' ').toUpperCase();
 
