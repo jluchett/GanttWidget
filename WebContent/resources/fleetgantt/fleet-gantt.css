@@ -286,3 +286,26 @@
     font-weight: 600;
     color: #57606a;
 }
+
+/* Bloque Libre / Disponible calculado automáticamente */
+.fg-bar.fg-status-libre {
+    background: #f1f3f5 !important;
+    color: #495057 !important;
+    border: 1px dashed #ced4da !important;
+    cursor: default;
+    font-size: 11px;
+    opacity: 0.85;
+}
+
+.fg-bar.fg-status-libre:hover {
+    opacity: 1;
+    border-color: #adb5bd !important;
+    background: #e9ecef !important;
+}
+
+/* Iluminación sincronizada (al pasar el ratón por el tractor se iluminan conductor y plataforma) */
+.fg-bar.fg-bar-highlighted {
+    outline: 2px solid #0969da !important;
+    box-shadow: 0 0 8px rgba(9, 105, 218, 0.45) !important;
+    z-index: 10 !important;
+}

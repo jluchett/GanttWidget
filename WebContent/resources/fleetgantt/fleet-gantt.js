@@ -16,7 +16,6 @@ class FleetGanttViewer {
         this.render();
     }
 
-    // Parsea fechas tanto si vienen como Array [YYYY, M, D, H, m], String ISO o Timestamp
     parseDate(val) {
         if (!val) return new Date();
         if (Array.isArray(val)) {
@@ -168,32 +167,116 @@ class FleetGanttViewer {
         this.totalHours = Math.max(24, Math.ceil((this.endDate.getTime() - this.startDate.getTime()) / 3600000));
     }
 
+    // Detección de conflictos basada en colisión de recursos compartidos
     detectClientConflicts() {
-        const byResource = {};
-        this.rawSchedule.tasks.forEach(t => {
-            if (t.status === 'cancelado') return;
-            if (!byResource[t.resourceId]) byResource[t.resourceId] = [];
-            byResource[t.resourceId].push(t);
-        });
+        const tasks = this.rawSchedule.tasks;
+        for (let i = 0; i < tasks.length; i++) {
+            const t1 = tasks[i];
+            if (t1.status === 'cancelado') continue;
+            const s1 = this.parseDate(t1.start).getTime();
+            const e1 = this.parseDate(t1.end).getTime();
+            const d1 = t1.details || {};
 
-        Object.values(byResource).forEach(taskList => {
-            for (let i = 0; i < taskList.length; i++) {
-                const t1 = taskList[i];
-                const s1 = this.parseDate(t1.start).getTime();
-                const e1 = this.parseDate(t1.end).getTime();
+            for (let j = i + 1; j < tasks.length; j++) {
+                const t2 = tasks[j];
+                if (t2.status === 'cancelado') continue;
+                const s2 = this.parseDate(t2.start).getTime();
+                const e2 = this.parseDate(t2.end).getTime();
+                const d2 = t2.details || {};
 
-                for (let j = i + 1; j < taskList.length; j++) {
-                    const t2 = taskList[j];
-                    const s2 = this.parseDate(t2.start).getTime();
-                    const e2 = this.parseDate(t2.end).getTime();
+                const overlap = (s1 < e2) && (s2 < e1);
+                if (overlap) {
+                    const sharesTractor = d1.tractor && d1.tractor === d2.tractor;
+                    const sharesPlataforma = d1.plataforma && d1.plataforma === d2.plataforma;
+                    const sharesConductor = d1.conductor && d1.conductor === d2.conductor;
 
-                    if (s1 < e2 && s2 < e1) {
+                    if (sharesTractor || sharesPlataforma || sharesConductor) {
                         t1.hasConflict = true;
                         t2.hasConflict = true;
                     }
                 }
             }
+        }
+    }
+
+    // Obtiene las tareas reales de un recurso y calcula dinámicamente los huecos "Libres"
+    buildResourceTimeline(resourceId) {
+        // 1. Tareas reales asociadas a este recurso
+        const assigned = [];
+        this.rawSchedule.tasks.forEach(t => {
+            const d = t.details || {};
+            if (d.tractor === resourceId || d.plataforma === resourceId || d.conductor === resourceId) {
+                assigned.push({
+                    ...t,
+                    isFreeBlock: false
+                });
+            }
         });
+
+        // 2. Orden cronológico
+        assigned.sort((a, b) => this.parseDate(a.start).getTime() - this.parseDate(b.start).getTime());
+
+        // 3. Intervalos ocupados para calcular huecos
+        const busyIntervals = [];
+        assigned.forEach(t => {
+            if (t.status === 'cancelado') return;
+            busyIntervals.push({
+                start: this.parseDate(t.start).getTime(),
+                end: this.parseDate(t.end).getTime()
+            });
+        });
+        busyIntervals.sort((a, b) => a.start - b.start);
+
+        // Fusionar intervalos ocupados solapados
+        const mergedBusy = [];
+        busyIntervals.forEach(curr => {
+            if (!mergedBusy.length) {
+                mergedBusy.push({ ...curr });
+            } else {
+                const prev = mergedBusy[mergedBusy.length - 1];
+                if (curr.start <= prev.end) {
+                    prev.end = Math.max(prev.end, curr.end);
+                } else {
+                    mergedBusy.push({ ...curr });
+                }
+            }
+        });
+
+        // 4. Generación dinámica de franjas "Libre"
+        const result = [...assigned];
+        let cursor = this.startDate.getTime();
+        const minGapMs = 15 * 60 * 1000; // Mínimo 15 minutos para dibujar un bloque libre
+
+        mergedBusy.forEach((busy, idx) => {
+            if (busy.start - cursor >= minGapMs) {
+                result.push({
+                    id: `free_${resourceId}_${idx}`,
+                    name: 'Disponible',
+                    start: new Date(cursor),
+                    end: new Date(busy.start),
+                    status: 'libre',
+                    hasConflict: false,
+                    isFreeBlock: true,
+                    details: {}
+                });
+            }
+            cursor = Math.max(cursor, busy.end);
+        });
+
+        if (this.endDate.getTime() - cursor >= minGapMs) {
+            result.push({
+                id: `free_${resourceId}_end`,
+                name: 'Disponible',
+                start: new Date(cursor),
+                end: new Date(this.endDate.getTime()),
+                status: 'libre',
+                hasConflict: false,
+                isFreeBlock: true,
+                details: {}
+            });
+        }
+
+        return result;
     }
 
     assignLanes(taskList) {
@@ -264,7 +347,10 @@ class FleetGanttViewer {
             if (this.filterText && !r.name.toLowerCase().includes(this.filterText) && !r.id.toLowerCase().includes(this.filterText)) return;
 
             if (this.onlyConflicts) {
-                const hasConf = this.rawSchedule.tasks.some(t => t.resourceId === r.id && t.hasConflict);
+                const hasConf = this.rawSchedule.tasks.some(t => {
+                    const d = t.details || {};
+                    return (d.tractor === r.id || d.plataforma === r.id || d.conductor === r.id) && t.hasConflict;
+                });
                 if (!hasConf) return;
             }
 
@@ -273,7 +359,7 @@ class FleetGanttViewer {
             resourcesByGroup[grp].push(r);
         });
 
-        // 3. Renderizar Filas
+        // 3. Renderizar Filas con proyección y cálculo de Libres
         Object.keys(resourcesByGroup).forEach(groupName => {
             const groupDiv = document.createElement('div');
             groupDiv.className = 'fg-resource-group';
@@ -285,12 +371,14 @@ class FleetGanttViewer {
             tracks.appendChild(spacer);
 
             resourcesByGroup[groupName].forEach(resource => {
-                let resTasks = this.rawSchedule.tasks.filter(t => t.resourceId === resource.id);
+                // Obtener tareas reales + bloques libres calculados
+                let resTasks = this.buildResourceTimeline(resource.id);
 
                 if (this.filterStatus !== 'ALL') {
                     resTasks = resTasks.filter(t => t.status === this.filterStatus);
                 }
 
+                // Sub-carriles para solapamientos
                 const numLanes = this.assignLanes(resTasks);
                 const isMultiLane = numLanes > 1;
                 const laneStep = 24;
@@ -320,18 +408,13 @@ class FleetGanttViewer {
                     const leftPx = leftHours * this.hourWidth;
                     const widthPx = Math.max(durationHours * this.hourWidth, 24);
 
-                    // ========================================================
-                    // CENTRADO EXCLUSIVO PARA TAREAS SIN CONFLICTO
-                    // ========================================================
                     const isConflict = Boolean(task.hasConflict);
                     const barHeight = isConflict ? 20 : 32;
 
                     let topPx;
                     if (isConflict) {
-                        // Las tareas que colisionan se ubican en sus sub-carriles
                         topPx = (task._lane || 0) * laneStep + 4;
                     } else {
-                        // Las tareas SIN conflicto se centran verticalmente en la fila
                         topPx = Math.round((rowHeight - barHeight) / 2);
                     }
 
@@ -341,15 +424,26 @@ class FleetGanttViewer {
                     bar.style.width = `${widthPx}px`;
                     bar.style.top = `${topPx}px`;
                     bar.style.height = `${barHeight}px`;
+                    bar.setAttribute('data-task-id', task.id);
 
                     const conflictIcon = isConflict ? '⚠️ ' : '';
                     bar.innerHTML = `${conflictIcon}${task.name}`;
 
-                    // Eventos
-                    bar.addEventListener('mouseenter', (e) => this.showTooltip(e, task, resource));
+                    // Eventos: Tooltips, Modales y Resaltado sincronizado
+                    bar.addEventListener('mouseenter', (e) => {
+                        this.showTooltip(e, task, resource);
+                        this.highlightRelatedTasks(task.id, true);
+                    });
                     bar.addEventListener('mousemove', (e) => this.moveTooltip(e));
-                    bar.addEventListener('mouseleave', () => this.hideTooltip());
-                    bar.addEventListener('click', () => this.openTaskModal(task, resource));
+                    bar.addEventListener('mouseleave', () => {
+                        this.hideTooltip();
+                        this.highlightRelatedTasks(task.id, false);
+                    });
+                    bar.addEventListener('click', () => {
+                        if (!task.isFreeBlock) {
+                            this.openTaskModal(task, resource);
+                        }
+                    });
 
                     trackRow.appendChild(bar);
                 });
@@ -359,13 +453,38 @@ class FleetGanttViewer {
         });
     }
 
+    // Ilumina las barras en todos los recursos que compartan el mismo ID de tarea
+    highlightRelatedTasks(taskId, highlight) {
+        if (!taskId || taskId.startsWith('free_')) return;
+        const matchingBars = this.container.querySelectorAll(`[data-task-id="${taskId}"]`);
+        matchingBars.forEach(b => b.classList.toggle('fg-bar-highlighted', highlight));
+    }
+
     showTooltip(e, task, resource) {
         const tt = document.getElementById(`${this.containerId}_tooltip`);
         if (!tt) return;
         const d = task.details || {};
 
+        if (task.isFreeBlock) {
+            const startStr = this.formatDate(task.start);
+            const endStr = this.formatDate(task.end);
+            const diffHours = ((this.parseDate(task.end).getTime() - this.parseDate(task.start).getTime()) / 3600000).toFixed(1);
+
+            tt.innerHTML = `
+                <div style="font-weight:bold;font-size:13px;border-bottom:1px solid #444;padding-bottom:3px;margin-bottom:4px;color:#7ee787;">
+                    DISPONIBLE (LIBRE)
+                </div>
+                <div><strong>Recurso:</strong> ${resource.name}</div>
+                <div><strong>Horario:</strong> ${startStr} &rarr; ${endStr}</div>
+                <div><strong>Duración disponible:</strong> ${diffHours} horas</div>
+            `;
+            tt.style.display = 'block';
+            this.moveTooltip(e);
+            return;
+        }
+
         const conflictMsg = task.hasConflict 
-            ? '<div style="color:#ff6b6b;font-weight:bold;margin-bottom:4px;">⚠️ Conflicto: Solapamiento detectado</div>' 
+            ? '<div style="color:#ff6b6b;font-weight:bold;margin-bottom:4px;">⚠️ Conflicto: Recurso solapado</div>' 
             : '';
 
         const statusLabel = (task.status || '').replace('_', ' ').toUpperCase();
@@ -373,6 +492,7 @@ class FleetGanttViewer {
         const rutaHtml = (d.origen || d.destino) 
             ? `<div><strong>Ruta:</strong> ${d.origen || 'N/A'} &rarr; ${d.destino || 'N/A'}</div>` 
             : '';
+        const tractorHtml = d.tractor ? `<div><strong>Tractor:</strong> ${d.tractor}</div>` : '';
         const conductorHtml = d.conductor ? `<div><strong>Conductor:</strong> ${d.conductor}</div>` : '';
         const plataformaHtml = d.plataforma ? `<div><strong>Plataforma:</strong> ${d.plataforma}</div>` : '';
         const tipoHtml = d.tipo ? `<div><strong>Tipo:</strong> ${d.tipo}</div>` : '';
@@ -383,11 +503,12 @@ class FleetGanttViewer {
             <div style="font-weight:bold;font-size:13px;border-bottom:1px solid #444;padding-bottom:3px;margin-bottom:4px;">
                 ${task.name} (${statusLabel})
             </div>
-            <div><strong>Recurso:</strong> ${resource.name}</div>
+            <div><strong>Línea de:</strong> ${resource.name} (${resource.type})</div>
             <div><strong>Horario:</strong> ${this.formatDate(task.start)} &rarr; ${this.formatDate(task.end)}</div>
             ${rutaHtml}
-            ${conductorHtml}
+            ${tractorHtml}
             ${plataformaHtml}
+            ${conductorHtml}
             ${tipoHtml}
             ${obsHtml}
         `;
@@ -415,13 +536,14 @@ class FleetGanttViewer {
         document.getElementById(`${cId}_modalBody`).innerHTML = `
             <div class="fg-modal-row"><span class="fg-modal-label">ID Tarea:</span><span>${task.id}</span></div>
             <div class="fg-modal-row"><span class="fg-modal-label">Estado:</span><span style="font-weight:bold">${task.status}</span></div>
-            <div class="fg-modal-row"><span class="fg-modal-label">Recurso:</span><span>${resource.name} (${resource.type})</span></div>
+            <div class="fg-modal-row"><span class="fg-modal-label">Recurso actual:</span><span>${resource.name} (${resource.type})</span></div>
             <div class="fg-modal-row"><span class="fg-modal-label">Inicio:</span><span>${this.formatDate(task.start)}</span></div>
             <div class="fg-modal-row"><span class="fg-modal-label">Fin:</span><span>${this.formatDate(task.end)}</span></div>
             <div class="fg-modal-row"><span class="fg-modal-label">Origen:</span><span>${d.origen || 'N/A'}</span></div>
             <div class="fg-modal-row"><span class="fg-modal-label">Destino:</span><span>${d.destino || 'N/A'}</span></div>
-            <div class="fg-modal-row"><span class="fg-modal-label">Conductor:</span><span>${d.conductor || 'N/A'}</span></div>
+            <div class="fg-modal-row"><span class="fg-modal-label">Tractor:</span><span>${d.tractor || 'N/A'}</span></div>
             <div class="fg-modal-row"><span class="fg-modal-label">Plataforma:</span><span>${d.plataforma || 'N/A'}</span></div>
+            <div class="fg-modal-row"><span class="fg-modal-label">Conductor:</span><span>${d.conductor || 'N/A'}</span></div>
             <div class="fg-modal-row"><span class="fg-modal-label">Observaciones:</span><span>${d.observaciones || 'Sin notas'}</span></div>
         `;
 
