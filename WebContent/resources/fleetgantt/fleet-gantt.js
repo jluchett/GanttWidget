@@ -10,10 +10,26 @@ class FleetGanttViewer {
         this.filterText = '';
         this.onlyConflicts = false;
 
+        this.normalizeTasks();
         this.initDOM();
+        this.populateDynamicFilters();
         this.detectClientConflicts();
         this.computeTimelineBounds();
         this.render();
+    }
+
+    // Normaliza resourceIds soportando tanto el formato nuevo como el anterior
+    normalizeTasks() {
+        this.rawSchedule.tasks.forEach(t => {
+            if (!Array.isArray(t.resourceIds)) {
+                t.resourceIds = [];
+                const d = t.details || {};
+                if (t.resourceId) t.resourceIds.push(t.resourceId);
+                if (d.tractor && !t.resourceIds.includes(d.tractor)) t.resourceIds.push(d.tractor);
+                if (d.plataforma && !t.resourceIds.includes(d.plataforma)) t.resourceIds.push(d.plataforma);
+                if (d.conductor && !t.resourceIds.includes(d.conductor)) t.resourceIds.push(d.conductor);
+            }
+        });
     }
 
     parseDate(val) {
@@ -21,12 +37,8 @@ class FleetGanttViewer {
         if (Array.isArray(val)) {
             return new Date(val[0], (val[1] || 1) - 1, val[2] || 1, val[3] || 0, val[4] || 0, val[5] || 0);
         }
-        if (typeof val === 'number') {
-            return new Date(val);
-        }
-        if (typeof val === 'string') {
-            return new Date(val.replace(' ', 'T'));
-        }
+        if (typeof val === 'number') return new Date(val);
+        if (typeof val === 'string') return new Date(val.replace(' ', 'T'));
         return new Date(val);
     }
 
@@ -38,6 +50,7 @@ class FleetGanttViewer {
     }
 
     initDOM() {
+        const cId = this.containerId;
         this.container.innerHTML = `
             <div class="fg-toolbar">
                 <div class="fg-toolbar-group">
@@ -47,51 +60,70 @@ class FleetGanttViewer {
                     <button class="fg-btn" data-zoom="24">1 Día</button>
                 </div>
                 <div class="fg-toolbar-group">
-                    <select class="fg-select" id="${this.containerId}_typeFilter">
+                    <select class="fg-select" id="${cId}_typeFilter">
                         <option value="ALL">Todos los Tipos</option>
-                        <option value="tractor">Tractores</option>
-                        <option value="plataforma">Plataformas</option>
-                        <option value="conductor">Conductores</option>
                     </select>
-                    <select class="fg-select" id="${this.containerId}_statusFilter">
+                    <select class="fg-select" id="${cId}_statusFilter">
                         <option value="ALL">Todos los Estados</option>
-                        <option value="en_viaje">En Viaje</option>
-                        <option value="en_carga">En Carga</option>
-                        <option value="mantenimiento">Mantenimiento</option>
-                        <option value="averiado">Averiado</option>
-                        <option value="descanso">Descanso</option>
-                        <option value="retrasado">Retrasado</option>
-                        <option value="cancelado">Cancelado</option>
-                        <option value="libre">Libre</option>
-                        <option value="reservado">Reservado</option>
                     </select>
-                    <input type="text" class="fg-input" id="${this.containerId}_search" placeholder="Buscar vehículo o viaje...">
-                    <button class="fg-btn" id="${this.containerId}_conflictToggle">⚠️ Conflictos</button>
+                    <input type="text" class="fg-input" id="${cId}_search" placeholder="Buscar recurso o actividad...">
+                    <button class="fg-btn" id="${cId}_conflictToggle">⚠️ Conflictos</button>
                 </div>
                 <div class="fg-toolbar-group">
-                    <button class="fg-btn" id="${this.containerId}_exportJson">JSON</button>
+                    <button class="fg-btn" id="${cId}_exportJson">JSON</button>
                 </div>
             </div>
             <div class="fg-body">
-                <div class="fg-sidebar" id="${this.containerId}_sidebar"></div>
-                <div class="fg-timeline-scroll" id="${this.containerId}_scroll">
-                    <div class="fg-timeline-header" id="${this.containerId}_header"></div>
-                    <div class="fg-tracks" id="${this.containerId}_tracks"></div>
+                <div class="fg-sidebar" id="${cId}_sidebar"></div>
+                <div class="fg-timeline-scroll" id="${cId}_scroll">
+                    <div class="fg-timeline-header" id="${cId}_header"></div>
+                    <div class="fg-tracks" id="${cId}_tracks"></div>
                 </div>
             </div>
-            <div class="fg-tooltip" id="${this.containerId}_tooltip"></div>
-            <div class="fg-modal-overlay" id="${this.containerId}_modalOverlay">
+            <div class="fg-tooltip" id="${cId}_tooltip"></div>
+            <div class="fg-modal-overlay" id="${cId}_modalOverlay">
                 <div class="fg-modal">
                     <div class="fg-modal-header">
-                        <h4 id="${this.containerId}_modalTitle" style="margin:0;">Detalle</h4>
-                        <button class="fg-btn" id="${this.containerId}_modalClose">&times;</button>
+                        <h4 id="${cId}_modalTitle" style="margin:0;">Detalle</h4>
+                        <button class="fg-btn" id="${cId}_modalClose">&times;</button>
                     </div>
-                    <div class="fg-modal-body" id="${this.containerId}_modalBody"></div>
+                    <div class="fg-modal-body" id="${cId}_modalBody"></div>
                 </div>
             </div>
         `;
 
         this.bindEvents();
+    }
+
+    // Extrae y puebla dinámicamente los selectores según el dataset suministrado
+    populateDynamicFilters() {
+        const cId = this.containerId;
+        const typeSelect = document.getElementById(`${cId}_typeFilter`);
+        const statusSelect = document.getElementById(`${cId}_statusFilter`);
+
+        const types = new Set();
+        this.rawSchedule.resources.forEach(r => {
+            if (r.type) types.add(r.type);
+        });
+
+        types.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t;
+            opt.innerText = t.charAt(0).toUpperCase() + t.slice(1);
+            typeSelect.appendChild(opt);
+        });
+
+        const statuses = new Set();
+        this.rawSchedule.tasks.forEach(task => {
+            if (task.status && task.status !== 'libre') statuses.add(task.status);
+        });
+
+        statuses.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s;
+            opt.innerText = s.replace(/_/g, ' ').toUpperCase();
+            statusSelect.appendChild(opt);
+        });
     }
 
     bindEvents() {
@@ -131,7 +163,7 @@ class FleetGanttViewer {
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.rawSchedule, null, 2));
             const dlAnchor = document.createElement('a');
             dlAnchor.setAttribute("href", dataStr);
-            dlAnchor.setAttribute("download", "fleet_occupancy.json");
+            dlAnchor.setAttribute("download", "schedule_export.json");
             dlAnchor.click();
         });
 
@@ -167,7 +199,7 @@ class FleetGanttViewer {
         this.totalHours = Math.max(24, Math.ceil((this.endDate.getTime() - this.startDate.getTime()) / 3600000));
     }
 
-    // Detección general de colisión operativa de recursos cruzados
+    // Detección general: dos tareas chocan si se solapan en tiempo y comparten cualquier ID de recurso
     detectClientConflicts() {
         const tasks = this.rawSchedule.tasks;
         for (let i = 0; i < tasks.length; i++) {
@@ -175,22 +207,19 @@ class FleetGanttViewer {
             if (t1.status === 'cancelado') continue;
             const s1 = this.parseDate(t1.start).getTime();
             const e1 = this.parseDate(t1.end).getTime();
-            const d1 = t1.details || {};
+            const r1 = t1.resourceIds || [];
 
             for (let j = i + 1; j < tasks.length; j++) {
                 const t2 = tasks[j];
                 if (t2.status === 'cancelado') continue;
                 const s2 = this.parseDate(t2.start).getTime();
                 const e2 = this.parseDate(t2.end).getTime();
-                const d2 = t2.details || {};
+                const r2 = t2.resourceIds || [];
 
                 const overlap = (s1 < e2) && (s2 < e1);
                 if (overlap) {
-                    const sharesTractor = d1.tractor && d1.tractor === d2.tractor;
-                    const sharesPlataforma = d1.plataforma && d1.plataforma === d2.plataforma;
-                    const sharesConductor = d1.conductor && d1.conductor === d2.conductor;
-
-                    if (sharesTractor || sharesPlataforma || sharesConductor) {
+                    const sharesResource = r1.some(id => r2.includes(id));
+                    if (sharesResource) {
                         t1.hasConflict = true;
                         t2.hasConflict = true;
                     }
@@ -199,16 +228,12 @@ class FleetGanttViewer {
         }
     }
 
-    // Obtiene las tareas reales de este recurso y rellena los huecos con "Disponible"
+    // Construye la línea de tiempo de un recurso calculando los huecos "Libres"
     buildResourceTimeline(resourceId) {
         const assigned = [];
         this.rawSchedule.tasks.forEach(t => {
-            const d = t.details || {};
-            if (d.tractor === resourceId || d.plataforma === resourceId || d.conductor === resourceId) {
-                assigned.push({
-                    ...t,
-                    isFreeBlock: false
-                });
+            if (Array.isArray(t.resourceIds) && t.resourceIds.includes(resourceId)) {
+                assigned.push({ ...t, isFreeBlock: false });
             }
         });
 
@@ -314,7 +339,7 @@ class FleetGanttViewer {
         header.style.width = `${timelineWidth}px`;
         tracks.style.width = `${timelineWidth}px`;
 
-        // 1. Encabezado
+        // 1. Encabezado de Horas
         for (let h = 0; h < this.totalHours; h += this.zoomHours) {
             const tickDate = new Date(this.startDate.getTime() + h * 3600000);
             const left = h * this.hourWidth;
@@ -343,8 +368,7 @@ class FleetGanttViewer {
 
             if (this.onlyConflicts) {
                 const hasConf = this.rawSchedule.tasks.some(t => {
-                    const d = t.details || {};
-                    return (d.tractor === r.id || d.plataforma === r.id || d.conductor === r.id) && t.hasConflict;
+                    return Array.isArray(t.resourceIds) && t.resourceIds.includes(r.id) && t.hasConflict;
                 });
                 if (!hasConf) return;
             }
@@ -372,9 +396,7 @@ class FleetGanttViewer {
                     resTasks = resTasks.filter(t => t.status === this.filterStatus);
                 }
 
-                // =========================================================================
-                // DETECCIÓN DE SOLAPAMIENTO EXCLUSIVO EN ESTE RECURSO (LOCAL OVERLAP)
-                // =========================================================================
+                // Detección de solapamiento local exclusivo en este recurso
                 const realTasks = resTasks.filter(t => !t.isFreeBlock && t.status !== 'cancelado');
                 const localOverlappingIds = new Set();
 
@@ -395,13 +417,11 @@ class FleetGanttViewer {
                     }
                 }
 
-                // Sub-carriles solo para tareas reales
                 const numLanes = this.assignLanes(realTasks);
                 const hasLocalCollisions = localOverlappingIds.size > 0;
                 const laneStep = 24;
                 const rowHeight = hasLocalCollisions ? (numLanes * laneStep + 8) : 44;
 
-                // Fila en sidebar
                 const resRow = document.createElement('div');
                 resRow.className = 'fg-resource-row';
                 resRow.style.height = `${rowHeight}px`;
@@ -409,7 +429,6 @@ class FleetGanttViewer {
                 resRow.innerText = resource.name;
                 sidebar.appendChild(resRow);
 
-                // Fila en timeline
                 const trackRow = document.createElement('div');
                 trackRow.className = 'fg-track-row';
                 trackRow.style.height = `${rowHeight}px`;
@@ -425,12 +444,9 @@ class FleetGanttViewer {
                     const leftPx = leftHours * this.hourWidth;
                     const widthPx = Math.max(durationHours * this.hourWidth, 24);
 
-                    // =========================================================================
-                    // REGLA: SOLO ES COMPACTA SI SE SOLAPA EN ESTE MISMO RECURSO
-                    // =========================================================================
                     const hasLocalOverlap = localOverlappingIds.has(task.id);
-                    const isCompact = hasLocalOverlap; // <-- Solo compacta si colisiona en esta fila
-                    
+                    const isCompact = hasLocalOverlap;
+
                     let barHeight;
                     if (task.isFreeBlock) {
                         barHeight = 26;
@@ -438,9 +454,6 @@ class FleetGanttViewer {
                         barHeight = isCompact ? 20 : 32;
                     }
 
-                    // Posición vertical:
-                    // Si se solapa en esta fila -> va a su carril compacto
-                    // Si NO se solapa en esta fila -> se centra perfectamente en la fila
                     let topPx;
                     if (isCompact) {
                         topPx = (task._lane || 0) * laneStep + 4;
@@ -453,6 +466,11 @@ class FleetGanttViewer {
                     const compactClass = isCompact ? ' fg-bar-compact' : '';
                     bar.className = `fg-bar fg-status-${task.status}${conflictClass}${compactClass}`;
 
+                    // Color personalizado opcional si viene definido directamente en la tarea
+                    if (task.color && !task.isFreeBlock) {
+                        bar.style.backgroundColor = task.color;
+                    }
+
                     bar.style.left = `${leftPx}px`;
                     bar.style.width = `${widthPx}px`;
                     bar.style.top = `${topPx}px`;
@@ -462,7 +480,6 @@ class FleetGanttViewer {
                     const conflictIcon = task.hasConflict ? '⚠️ ' : '';
                     bar.innerHTML = `${conflictIcon}${task.name}`;
 
-                    // Eventos
                     bar.addEventListener('mouseenter', (e) => {
                         this.showTooltip(e, task, resource, hasLocalOverlap);
                         this.highlightRelatedTasks(task.id, true);
@@ -492,10 +509,10 @@ class FleetGanttViewer {
         matchingBars.forEach(b => b.classList.toggle('fg-bar-highlighted', highlight));
     }
 
+    // Tooltip reflexivo: itera sobre cualquier campo de details dinámicamente
     showTooltip(e, task, resource, hasLocalOverlap) {
         const tt = document.getElementById(`${this.containerId}_tooltip`);
         if (!tt) return;
-        const d = task.details || {};
 
         if (task.isFreeBlock) {
             const startStr = this.formatDate(task.start);
@@ -504,51 +521,55 @@ class FleetGanttViewer {
 
             tt.innerHTML = `
                 <div style="font-weight:bold;font-size:13px;border-bottom:1px solid #444;padding-bottom:3px;margin-bottom:4px;color:#7ee787;">
-                    DISPONIBLE (LIBRE)
+                    DISPONIBLE
                 </div>
                 <div><strong>Recurso:</strong> ${resource.name}</div>
                 <div><strong>Horario:</strong> ${startStr} &rarr; ${endStr}</div>
-                <div><strong>Duración disponible:</strong> ${diffHours} horas</div>
+                <div><strong>Tiempo disponible:</strong> ${diffHours} h</div>
             `;
             tt.style.display = 'block';
             this.moveTooltip(e);
             return;
         }
 
-        // Mensaje de conflicto descriptivo según dónde ocurre
         let conflictMsg = '';
         if (task.hasConflict) {
             if (hasLocalOverlap) {
                 conflictMsg = '<div style="color:#ff6b6b;font-weight:bold;margin-bottom:4px;">⚠️ Conflicto: Solapamiento directo en este recurso</div>';
             } else {
-                conflictMsg = '<div style="color:#f0883e;font-weight:bold;margin-bottom:4px;">⚠️ Aviso: Conflicto en otro recurso asociado (conductor o plataforma)</div>';
+                conflictMsg = '<div style="color:#f0883e;font-weight:bold;margin-bottom:4px;">⚠️ Conflicto en otro recurso compartido de esta tarea</div>';
             }
         }
 
-        const statusLabel = (task.status || '').replace('_', ' ').toUpperCase();
+        const statusLabel = (task.status || '').replace(/_/g, ' ').toUpperCase();
 
-        const rutaHtml = (d.origen || d.destino) 
-            ? `<div><strong>Ruta:</strong> ${d.origen || 'N/A'} &rarr; ${d.destino || 'N/A'}</div>` 
-            : '';
-        const tractorHtml = d.tractor ? `<div><strong>Tractor:</strong> ${d.tractor}</div>` : '';
-        const conductorHtml = d.conductor ? `<div><strong>Conductor:</strong> ${d.conductor}</div>` : '';
-        const plataformaHtml = d.plataforma ? `<div><strong>Plataforma:</strong> ${d.plataforma}</div>` : '';
-        const tipoHtml = d.tipo ? `<div><strong>Tipo:</strong> ${d.tipo}</div>` : '';
-        const obsHtml = d.observaciones ? `<div style="color:#f0883e;margin-top:3px;"><em>Obs: ${d.observaciones}</em></div>` : '';
+        // Renderizado dinámico reflexivo de cualquier propiedad en details
+        let detailsHtml = '';
+        if (task.details && typeof task.details === 'object') {
+            Object.entries(task.details).forEach(([key, val]) => {
+                if (val !== null && val !== undefined && val !== '') {
+                    detailsHtml += `<div><strong>${key}:</strong> ${val}</div>`;
+                }
+            });
+        }
+
+        // Mostrar lista de todos los recursos vinculados
+        const assignedResNames = (task.resourceIds || [])
+            .map(id => {
+                const res = this.rawSchedule.resources.find(r => r.id === id);
+                return res ? res.name : id;
+            })
+            .join(', ');
 
         tt.innerHTML = `
             ${conflictMsg}
             <div style="font-weight:bold;font-size:13px;border-bottom:1px solid #444;padding-bottom:3px;margin-bottom:4px;">
                 ${task.name} (${statusLabel})
             </div>
-            <div><strong>Línea de:</strong> ${resource.name} (${resource.type})</div>
+            <div><strong>Fila actual:</strong> ${resource.name}</div>
             <div><strong>Horario:</strong> ${this.formatDate(task.start)} &rarr; ${this.formatDate(task.end)}</div>
-            ${rutaHtml}
-            ${tractorHtml}
-            ${plataformaHtml}
-            ${conductorHtml}
-            ${tipoHtml}
-            ${obsHtml}
+            ${assignedResNames ? `<div><strong>Recursos asignados:</strong> ${assignedResNames}</div>` : ''}
+            ${detailsHtml}
         `;
         tt.style.display = 'block';
         this.moveTooltip(e);
@@ -566,23 +587,35 @@ class FleetGanttViewer {
         if (tt) tt.style.display = 'none';
     }
 
+    // Modal reflexivo: genera una fila de visualización por cada clave del objeto details
     openTaskModal(task, resource) {
         const cId = this.containerId;
-        const d = task.details || {};
         document.getElementById(`${cId}_modalTitle`).innerText = task.name;
 
+        let dynamicRows = '';
+        if (task.details && typeof task.details === 'object') {
+            Object.entries(task.details).forEach(([key, val]) => {
+                if (val !== null && val !== undefined) {
+                    dynamicRows += `<div class="fg-modal-row"><span class="fg-modal-label">${key}:</span><span>${val}</span></div>`;
+                }
+            });
+        }
+
+        const assignedResList = (task.resourceIds || [])
+            .map(id => {
+                const r = this.rawSchedule.resources.find(item => item.id === id);
+                return r ? `${r.name} (${r.type || 'General'})` : id;
+            })
+            .join(' | ');
+
         document.getElementById(`${cId}_modalBody`).innerHTML = `
-            <div class="fg-modal-row"><span class="fg-modal-label">ID Tarea:</span><span>${task.id}</span></div>
+            <div class="fg-modal-row"><span class="fg-modal-label">ID Actividad:</span><span>${task.id}</span></div>
             <div class="fg-modal-row"><span class="fg-modal-label">Estado:</span><span style="font-weight:bold">${task.status}</span></div>
-            <div class="fg-modal-row"><span class="fg-modal-label">Recurso actual:</span><span>${resource.name} (${resource.type})</span></div>
+            <div class="fg-modal-row"><span class="fg-modal-label">Fila visible:</span><span>${resource.name} (${resource.type || 'N/A'})</span></div>
             <div class="fg-modal-row"><span class="fg-modal-label">Inicio:</span><span>${this.formatDate(task.start)}</span></div>
             <div class="fg-modal-row"><span class="fg-modal-label">Fin:</span><span>${this.formatDate(task.end)}</span></div>
-            <div class="fg-modal-row"><span class="fg-modal-label">Origen:</span><span>${d.origen || 'N/A'}</span></div>
-            <div class="fg-modal-row"><span class="fg-modal-label">Destino:</span><span>${d.destino || 'N/A'}</span></div>
-            <div class="fg-modal-row"><span class="fg-modal-label">Tractor:</span><span>${d.tractor || 'N/A'}</span></div>
-            <div class="fg-modal-row"><span class="fg-modal-label">Plataforma:</span><span>${d.plataforma || 'N/A'}</span></div>
-            <div class="fg-modal-row"><span class="fg-modal-label">Conductor:</span><span>${d.conductor || 'N/A'}</span></div>
-            <div class="fg-modal-row"><span class="fg-modal-label">Observaciones:</span><span>${d.observaciones || 'Sin notas'}</span></div>
+            <div class="fg-modal-row"><span class="fg-modal-label">Recursos:</span><span>${assignedResList || 'Ninguno'}</span></div>
+            ${dynamicRows}
         `;
 
         document.getElementById(`${cId}_modalOverlay`).style.display = 'flex';

@@ -5,8 +5,8 @@
     { "id": "T0009", "name": "T0009 - 3333CGC", "type": "tractor", "group": "TRACTORES" },
     { "id": "P0002", "name": "P0002 - R-6666-CCC", "type": "plataforma", "group": "PLATAFORMAS" },
     { "id": "P0018", "name": "P0018 - R-0419-CCC", "type": "plataforma", "group": "PLATAFORMAS" },
-    { "id": "C0003", "name": "C0003 - PEDRO MARTINEZ LOPEZ", "type": "conductor", "group": "CONDUCTORES" },
-    { "id": "C0009", "name": "C0009 - ALFONSO MARTIN REDON", "type": "conductor", "group": "CONDUCTORES" },
+    { "id": "C0003", "name": "C0003 - PEDRO MARTINEZ", "type": "conductor", "group": "CONDUCTORES" },
+    { "id": "C0009", "name": "C0009 - ALFONSO MARTIN", "type": "conductor", "group": "CONDUCTORES" },
     { "id": "C0025", "name": "C0025 - ALBERTO DIAZ", "type": "conductor", "group": "CONDUCTORES" }
   ],
   "tasks": [
@@ -16,14 +16,11 @@
       "start": "2025-09-02T08:00:00",
       "end": "2025-09-02T14:30:00",
       "status": "en_viaje",
+      "resourceIds": ["T0005", "P0002", "C0003"],
       "details": {
-        "tractor": "T0005",
-        "plataforma": "P0002",
-        "conductor": "C0003",
-        "origen": "PO SAN",
-        "destino": "AZUQUECA",
-        "tipo": "viaje",
-        "observaciones": null
+        "Origen": "PO SAN",
+        "Destino": "AZUQUECA",
+        "Tipo Carga": "Refrigerado"
       }
     },
     {
@@ -32,126 +29,56 @@
       "start": "2025-09-02T15:00:00",
       "end": "2025-09-02T21:00:00",
       "status": "en_viaje",
+      "resourceIds": ["T0005", "P0002", "C0003"],
       "details": {
-        "tractor": "T0005",
-        "plataforma": "P0002",
-        "conductor": "C0003",
-        "origen": "PO SAN",
-        "destino": "SAN",
-        "tipo": "viaje",
-        "observaciones": null
+        "Origen": "PO SAN",
+        "Destino": "SAN"
       }
     },
     {
-      "id": "viaje-003",
+      "id": "mant-001",
       "name": "Mantenimiento preventivo",
       "start": "2025-09-02T09:00:00",
       "end": "2025-09-02T13:00:00",
       "status": "mantenimiento",
+      "resourceIds": ["T0006"],
       "details": {
-        "tractor": "T0006",
-        "plataforma": null,
-        "conductor": null,
-        "origen": null,
-        "destino": null,
-        "tipo": "mantenimiento",
-        "observaciones": "Cambio de aceite y revisión de frenos"
+        "Taller": "Mecánica Central",
+        "Operación": "Cambio de aceite y filtros"
       }
     },
     {
-      "id": "viaje-004",
+      "id": "averia-001",
       "name": "Avería en ruta",
       "start": "2025-09-02T10:30:00",
       "end": "2025-09-02T18:00:00",
       "status": "averiado",
+      "resourceIds": ["T0009", "P0018", "C0009"],
       "details": {
-        "tractor": "T0009",
-        "plataforma": "P0018",
-        "conductor": "C0009",
-        "origen": "PO SAN",
-        "destino": "MADRID",
-        "tipo": "averia",
-        "observaciones": "Problema en el sistema de refrigeración"
+        "Ubicación": "A-3 km 142",
+        "Motivo": "Fallo en compresor"
       }
     },
     {
-      "id": "viaje-005",
+      "id": "carga-001",
       "name": "Carga en muelle 3",
       "start": "2025-09-02T14:00:00",
       "end": "2025-09-02T16:30:00",
       "status": "en_carga",
+      "resourceIds": ["T0006", "P0002", "C0025"],
       "details": {
-        "tractor": "T0006",
-        "plataforma": "P0002",
-        "conductor": "C0025",
-        "origen": "PO SAN",
-        "destino": null,
-        "tipo": "carga",
-        "observaciones": "Carga de mercancía refrigerada"
+        "Muelle": "3-B"
       }
     },
     {
-      "id": "viaje-006",
+      "id": "descanso-001",
       "name": "Descanso obligatorio",
       "start": "2025-09-02T14:30:00",
       "end": "2025-09-02T15:30:00",
       "status": "descanso",
+      "resourceIds": ["C0003"],
       "details": {
-        "tractor": null,
-        "plataforma": null,
-        "conductor": "C0003",
-        "origen": null,
-        "destino": null,
-        "tipo": "descanso",
-        "observaciones": "Descanso reglamentario de 45 min"
-      }
-    },
-    {
-      "id": "viaje-007",
-      "name": "PO SAN → VALENCIA (retrasado)",
-      "start": "2025-09-03T07:00:00",
-      "end": "2025-09-03T15:00:00",
-      "status": "retrasado",
-      "details": {
-        "tractor": "T0005",
-        "plataforma": "P0002",
-        "conductor": "C0003",
-        "origen": "PO SAN",
-        "destino": "VALENCIA",
-        "tipo": "viaje",
-        "observaciones": "Retraso por tráfico en A-3"
-      }
-    },
-    {
-      "id": "viaje-008",
-      "name": "Viaje cancelado",
-      "start": "2025-09-03T08:00:00",
-      "end": "2025-09-03T14:00:00",
-      "status": "cancelado",
-      "details": {
-        "tractor": "T0009",
-        "plataforma": "P0018",
-        "conductor": "C0009",
-        "origen": "PO SAN",
-        "destino": "BARCELONA",
-        "tipo": "viaje",
-        "observaciones": "Cancelado por el cliente"
-      }
-    },
-    {
-      "id": "viaje-010",
-      "name": "PO SAN → ZARAGOZA",
-      "start": "2025-09-03T06:30:00",
-      "end": "2025-09-03T12:00:00",
-      "status": "en_viaje",
-      "details": {
-        "tractor": "T0006",
-        "plataforma": "P0018",
-        "conductor": "C0025",
-        "origen": "PO SAN",
-        "destino": "ZARAGOZA",
-        "tipo": "viaje",
-        "observaciones": null
+        "Reglamento": "Pausa de 45m"
       }
     }
   ]
