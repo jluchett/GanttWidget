@@ -1,9 +1,9 @@
 package com.fleet.gantt.service;
 
 import com.fleet.gantt.model.FleetTask;
-import com.fleet.gantt.model.TaskDetails;
 
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.List;
 
 public class FleetConflictService implements Serializable {
@@ -11,9 +11,7 @@ public class FleetConflictService implements Serializable {
     private static final long serialVersionUID = 1L;
 
     public void detectAndMarkConflicts(List<FleetTask> tasks) {
-        if (tasks == null || tasks.size() < 2) {
-            return;
-        }
+        if (tasks == null || tasks.size() < 2) return;
 
         for (int i = 0; i < tasks.size(); i++) {
             FleetTask t1 = tasks.get(i);
@@ -23,11 +21,11 @@ public class FleetConflictService implements Serializable {
                 FleetTask t2 = tasks.get(j);
                 if ("cancelado".equalsIgnoreCase(t2.getStatus())) continue;
 
-                // 1. Solapamiento temporal
+                // 1. Solapamiento de tiempo
                 boolean overlap = t1.getStart().isBefore(t2.getEnd()) && t2.getStart().isBefore(t1.getEnd());
 
-                // 2. Colisión si comparten tractor, plataforma o conductor
-                if (overlap && sharesAnyResource(t1.getDetails(), t2.getDetails())) {
+                // 2. Conflicto si comparten al menos un recurso en su lista
+                if (overlap && !Collections.disjoint(t1.getResourceIds(), t2.getResourceIds())) {
                     t1.setHasConflict(true);
                     t2.setHasConflict(true);
 
@@ -40,15 +38,5 @@ public class FleetConflictService implements Serializable {
                 }
             }
         }
-    }
-
-    private boolean sharesAnyResource(TaskDetails d1, TaskDetails d2) {
-        if (d1 == null || d2 == null) return false;
-
-        if (d1.getTractor() != null && d1.getTractor().equals(d2.getTractor())) return true;
-        if (d1.getPlataforma() != null && d1.getPlataforma().equals(d2.getPlataforma())) return true;
-        if (d1.getConductor() != null && d1.getConductor().equals(d2.getConductor())) return true;
-
-        return false;
     }
 }

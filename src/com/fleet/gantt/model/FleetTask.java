@@ -3,7 +3,9 @@ package com.fleet.gantt.model;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 public class FleetTask implements Serializable {
@@ -15,22 +17,27 @@ public class FleetTask implements Serializable {
     private LocalDateTime start;
     private LocalDateTime end;
     private String status;
-    private TaskDetails details;
+    private String color; // Color hexadecimal opcional (ej: "#0969da")
 
+    // Lista generica de recursos asignados a esta actividad
+    private List<String> resourceIds = new ArrayList<>();
+
+    // Metadata dinamica sin esquema rigido
+    private Map<String, Object> details = new HashMap<>();
+
+    // Control de solapamientos
     private boolean hasConflict = false;
     private List<String> conflictingTaskIds = new ArrayList<>();
 
     public FleetTask() {
     }
 
-    public FleetTask(String id, String name, LocalDateTime start, 
-                     LocalDateTime end, String status, TaskDetails details) {
+    public FleetTask(String id, String name, LocalDateTime start, LocalDateTime end, String status) {
         this.id = id;
         this.name = name;
         this.start = start;
         this.end = end;
         this.status = status;
-        this.details = details;
     }
 
     public String getId() { return id; }
@@ -48,15 +55,25 @@ public class FleetTask implements Serializable {
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
 
-    public TaskDetails getDetails() { return details; }
-    public void setDetails(TaskDetails details) { this.details = details; }
+    public String getColor() { return color; }
+    public void setColor(String color) { this.color = color; }
+
+    public List<String> getResourceIds() { return resourceIds; }
+    public void setResourceIds(List<String> resourceIds) {
+        this.resourceIds = resourceIds != null ? resourceIds : new ArrayList<>();
+    }
+
+    public Map<String, Object> getDetails() { return details; }
+    public void setDetails(Map<String, Object> details) {
+        this.details = details != null ? details : new HashMap<>();
+    }
 
     public boolean isHasConflict() { return hasConflict; }
     public void setHasConflict(boolean hasConflict) { this.hasConflict = hasConflict; }
 
     public List<String> getConflictingTaskIds() { return conflictingTaskIds; }
-    public void setConflictingTaskIds(List<String> conflictingTaskIds) { 
-        this.conflictingTaskIds = conflictingTaskIds != null ? conflictingTaskIds : new ArrayList<>(); 
+    public void setConflictingTaskIds(List<String> conflictingTaskIds) {
+        this.conflictingTaskIds = conflictingTaskIds != null ? conflictingTaskIds : new ArrayList<>();
     }
 
     @Override
