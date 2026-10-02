@@ -6,7 +6,7 @@
     <cc:interface>
         <!-- JSON con resources y tasks -->
         <cc:attribute name="data" required="true" type="java.lang.String" />
-        <cc:attribute name="height" default="550px" type="java.lang.String" />
+        <cc:attribute name="height" default="calc(100vh - 110px)" type="java.lang.String" />
     </cc:interface>
 
     <cc:implementation>
@@ -16,13 +16,18 @@
 
         <div id="#{cc.clientId}_wrapper" class="fg-container" style="height: #{cc.attrs.height};"></div>
 
+        <!-- Contenedor seguro para inyectar datos JSON sin colisiones de comillas -->
+        <script id="#{cc.clientId}_data" type="application/json">#{cc.attrs.data}</script>
+
         <script type="text/javascript">
             // <![CDATA[
             (function() {
                 var initGantt = function() {
+                    var dataEl = document.getElementById("#{cc.clientId}_data");
+                    var rawData = dataEl ? dataEl.textContent : "{}";
                     new FleetGanttViewer({
                         containerId: "#{cc.clientId}_wrapper",
-                        data: JSON.parse('#{cc.attrs.data}'),
+                        data: rawData,
                         defaultZoomHours: 2
                     });
                 };

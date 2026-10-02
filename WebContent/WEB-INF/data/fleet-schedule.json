@@ -1,84 +1,298 @@
 {
   "resources": [
-    { "id": "T0005", "name": "T0005 - 0569CSR", "type": "tractor", "group": "TRACTORES" },
-    { "id": "T0006", "name": "T0006 - 0680CGF", "type": "tractor", "group": "TRACTORES" },
-    { "id": "T0009", "name": "T0009 - 3333CGC", "type": "tractor", "group": "TRACTORES" },
-    { "id": "P0002", "name": "P0002 - R-6666-CCC", "type": "plataforma", "group": "PLATAFORMAS" },
-    { "id": "P0018", "name": "P0018 - R-0419-CCC", "type": "plataforma", "group": "PLATAFORMAS" },
-    { "id": "C0003", "name": "C0003 - PEDRO MARTINEZ", "type": "conductor", "group": "CONDUCTORES" },
-    { "id": "C0009", "name": "C0009 - ALFONSO MARTIN", "type": "conductor", "group": "CONDUCTORES" },
-    { "id": "C0025", "name": "C0025 - ALBERTO DIAZ", "type": "conductor", "group": "CONDUCTORES" }
+    { "id": "T0001", "name": "T0001 – 5678MNT", "type": "tractor", "group": "TRACTORES" },
+    { "id": "T0005", "name": "T0005 – 8569CDR", "type": "tractor", "group": "TRACTORES" },
+    { "id": "T0006", "name": "T0006 – 9869CGF", "type": "tractor", "group": "TRACTORES" },
+    { "id": "T0009", "name": "T0009 – 3333CQC", "type": "tractor", "group": "TRACTORES" },
+    { "id": "T0012", "name": "T0012 – 4114HJK", "type": "tractor", "group": "TRACTORES" },
+    { "id": "T0015", "name": "T0015 – 1111BBB", "type": "tractor", "group": "TRACTORES" },
+
+    { "id": "P0002", "name": "P0002 – R-6666-CCC", "type": "plataforma", "group": "PLATAFORMAS" },
+    { "id": "P0008", "name": "P0008 – R-1234-BBB", "type": "plataforma", "group": "PLATAFORMAS" },
+    { "id": "P0014", "name": "P0014 – R-9988-FFF", "type": "plataforma", "group": "PLATAFORMAS" },
+    { "id": "P0018", "name": "P0018 – R-0018-CCC", "type": "plataforma", "group": "PLATAFORMAS" },
+    { "id": "P0022", "name": "P0022 – R-5544-ZZZ", "type": "plataforma", "group": "PLATAFORMAS" },
+    { "id": "P0030", "name": "P0030 – R-7711-KKK", "type": "plataforma", "group": "PLATAFORMAS" },
+
+    { "id": "C0003", "name": "C0003 – PEDRO MARTINEZ LOPEZ", "type": "conductor", "group": "CONDUCTORES" },
+    { "id": "C0009", "name": "C0009 – ALFONSO MARTIN RODRIGUEZ", "type": "conductor", "group": "CONDUCTORES" },
+    { "id": "C0014", "name": "C0014 – JAVIER BENITEZ", "type": "conductor", "group": "CONDUCTORES" },
+    { "id": "C0020", "name": "C0020 – CARLOS SANCHEZ GIL", "type": "conductor", "group": "CONDUCTORES" },
+    { "id": "C0025", "name": "C0025 – ALBERTO DIAZ", "type": "conductor", "group": "CONDUCTORES" },
+    { "id": "C0090", "name": "90 – KIKO AZPARREN", "type": "conductor", "group": "CONDUCTORES" }
   ],
   "tasks": [
     {
-      "id": "viaje-001",
+      "id": "viaje-101",
+      "name": "MADRID → ZARAGOZA",
+      "start": "2025-09-01T06:00:00",
+      "end": "2025-09-01T12:30:00",
+      "status": "en_viaje",
+      "resourceIds": ["T0001", "P0008", "C0090"],
+      "details": {
+        "Origen": "Centro Logístico Madrid",
+        "Destino": "Plaza Zaragoza",
+        "Tipo Carga": "Paquetería Express",
+        "Remolque": "P0008"
+      }
+    },
+    {
+      "id": "viaje-102",
+      "name": "Carga Muelle A2",
+      "start": "2025-09-01T13:30:00",
+      "end": "2025-09-01T16:00:00",
+      "status": "en_carga",
+      "resourceIds": ["T0001", "P0008", "C0090"],
+      "details": {
+        "Muelle": "A2 - Mercazaragoza",
+        "Operario": "Turno Tarde",
+        "Observaciones": "Carga paletizada refrigerada"
+      }
+    },
+    {
+      "id": "viaje-103",
       "name": "PO SAN → AZUQUECA",
-      "start": "2025-09-02T08:00:00",
-      "end": "2025-09-02T14:30:00",
+      "start": "2025-09-01T08:00:00",
+      "end": "2025-09-01T14:30:00",
       "status": "en_viaje",
       "resourceIds": ["T0005", "P0002", "C0003"],
       "details": {
         "Origen": "PO SAN",
         "Destino": "AZUQUECA",
-        "Tipo Carga": "Refrigerado"
+        "Cliente": "Distribución Central"
       }
     },
     {
-      "id": "viaje-002",
-      "name": "PO SAN → SAN",
-      "start": "2025-09-02T15:00:00",
-      "end": "2025-09-02T21:00:00",
-      "status": "en_viaje",
-      "resourceIds": ["T0005", "P0002", "C0003"],
-      "details": {
-        "Origen": "PO SAN",
-        "Destino": "SAN"
-      }
-    },
-    {
-      "id": "mant-001",
-      "name": "Mantenimiento preventivo",
-      "start": "2025-09-02T09:00:00",
-      "end": "2025-09-02T13:00:00",
-      "status": "mantenimiento",
-      "resourceIds": ["T0006"],
-      "details": {
-        "Taller": "Mecánica Central",
-        "Operación": "Cambio de aceite y filtros"
-      }
-    },
-    {
-      "id": "averia-001",
-      "name": "Avería en ruta",
-      "start": "2025-09-02T10:30:00",
-      "end": "2025-09-02T18:00:00",
-      "status": "averiado",
-      "resourceIds": ["T0009", "P0018", "C0009"],
-      "details": {
-        "Ubicación": "A-3 km 142",
-        "Motivo": "Fallo en compresor"
-      }
-    },
-    {
-      "id": "carga-001",
-      "name": "Carga en muelle 3",
-      "start": "2025-09-02T14:00:00",
-      "end": "2025-09-02T16:30:00",
-      "status": "en_carga",
-      "resourceIds": ["T0006", "P0002", "C0025"],
-      "details": {
-        "Muelle": "3-B"
-      }
-    },
-    {
-      "id": "descanso-001",
-      "name": "Descanso obligatorio",
-      "start": "2025-09-02T14:30:00",
-      "end": "2025-09-02T15:30:00",
+      "id": "viaje-104",
+      "name": "Descanso reglamentario 45m",
+      "start": "2025-09-01T14:30:00",
+      "end": "2025-09-01T15:30:00",
       "status": "descanso",
       "resourceIds": ["C0003"],
       "details": {
-        "Reglamento": "Pausa de 45m"
+        "Tipo": "Descanso obligatorio tacógrafo",
+        "Área": "Área de Servicio A-2 km 103"
+      }
+    },
+    {
+      "id": "viaje-105",
+      "name": "PO SAN → SAN (Retorno)",
+      "start": "2025-09-01T15:00:00",
+      "end": "2025-09-01T21:00:00",
+      "status": "en_viaje",
+      "resourceIds": ["T0005", "P0002", "C0003"],
+      "details": {
+        "Origen": "AZUQUECA",
+        "Destino": "PO SAN",
+        "Observaciones": "Conflicto de 30m con descanso de C0003"
+      }
+    },
+    {
+      "id": "mant-101",
+      "name": "Mantenimiento Preventivo B",
+      "start": "2025-09-01T09:00:00",
+      "end": "2025-09-01T13:30:00",
+      "status": "mantenimiento",
+      "resourceIds": ["T0006"],
+      "details": {
+        "Taller": "Taller Oficial Scania",
+        "Operación": "Cambio de aceite, filtros y revisión de zapatas"
+      }
+    },
+    {
+      "id": "viaje-106",
+      "name": "Carga Muelle 3 Frío",
+      "start": "2025-09-01T14:00:00",
+      "end": "2025-09-01T17:00:00",
+      "status": "en_carga",
+      "resourceIds": ["T0006", "P0002", "C0025"],
+      "details": {
+        "Muelle": "Muelle Frigorífico 3",
+        "Conflicto": "Plataforma P0002 solicitada mientras T0005 aún la tiene enganchada"
+      }
+    },
+    {
+      "id": "viaje-107",
+      "name": "Avería circuito frenos",
+      "start": "2025-09-01T10:30:00",
+      "end": "2025-09-01T18:00:00",
+      "status": "averiado",
+      "resourceIds": ["T0009", "P0018", "C0009"],
+      "details": {
+        "Ubicación": "Autovía A-3 km 142",
+        "Asistencia": "Grúa en camino",
+        "Carga": "Frutas y hortalizas"
+      }
+    },
+    {
+      "id": "viaje-108",
+      "name": "VALENCIA → ALICANTE",
+      "start": "2025-09-01T07:00:00",
+      "end": "2025-09-01T12:00:00",
+      "status": "en_viaje",
+      "resourceIds": ["T0012", "P0014", "C0014"],
+      "details": {
+        "Origen": "Puerto de Valencia",
+        "Destino": "Polígono Atalayas Alicante",
+        "Contenedor": "MSCU-884910-2"
+      }
+    },
+    {
+      "id": "viaje-109",
+      "name": "Descanso Chofer",
+      "start": "2025-09-01T12:00:00",
+      "end": "2025-09-01T13:30:00",
+      "status": "descanso",
+      "resourceIds": ["C0014"],
+      "details": {
+        "Tipo": "Comida y descanso diario"
+      }
+    },
+    {
+      "id": "viaje-110",
+      "name": "ALICANTE → MURCIA",
+      "start": "2025-09-01T14:00:00",
+      "end": "2025-09-01T18:30:00",
+      "status": "en_viaje",
+      "resourceIds": ["T0012", "P0014", "C0014"],
+      "details": {
+        "Origen": "Alicante",
+        "Destino": "Murcia Base Logística"
+      }
+    },
+    {
+      "id": "viaje-111",
+      "name": "SEVILLA → HUELVA",
+      "start": "2025-09-01T08:30:00",
+      "end": "2025-09-01T13:00:00",
+      "status": "en_viaje",
+      "resourceIds": ["T0015", "P0022", "C0020"],
+      "details": {
+        "Origen": "Sevilla ZAL",
+        "Destino": "Puerto de Huelva"
+      }
+    },
+    {
+      "id": "viaje-112",
+      "name": "Carga Químicos Puerto",
+      "start": "2025-09-01T14:30:00",
+      "end": "2025-09-01T19:00:00",
+      "status": "en_carga",
+      "resourceIds": ["T0015", "P0022", "C0020"],
+      "details": {
+        "Tipo Carga": "ADR Cisterna",
+        "Protocolo": "Seguridad Nivel 2"
+      }
+    },
+    {
+      "id": "viaje-201",
+      "name": "PO SAN → VALENCIA (Retrasado)",
+      "start": "2025-09-02T07:00:00",
+      "end": "2025-09-02T15:30:00",
+      "status": "retrasado",
+      "resourceIds": ["T0005", "P0002", "C0003"],
+      "details": {
+        "Origen": "PO SAN",
+        "Destino": "VALENCIA",
+        "Causa Retraso": "Retención por accidente en A-3 km 89",
+        "ETA": "15:30"
+      }
+    },
+    {
+      "id": "viaje-202",
+      "name": "VALENCIA → CASTELLÓN",
+      "start": "2025-09-02T16:30:00",
+      "end": "2025-09-02T20:00:00",
+      "status": "en_viaje",
+      "resourceIds": ["T0005", "P0002", "C0003"],
+      "details": {
+        "Origen": "Valencia Puerto",
+        "Destino": "Castellón Polígono Mijares"
+      }
+    },
+    {
+      "id": "viaje-203",
+      "name": "PO SAN → ZARAGOZA",
+      "start": "2025-09-02T06:30:00",
+      "end": "2025-09-02T12:00:00",
+      "status": "en_viaje",
+      "resourceIds": ["T0006", "P0030", "C0025"],
+      "details": {
+        "Origen": "PO SAN",
+        "Destino": "Plaza Zaragoza",
+        "Plataforma": "P0030"
+      }
+    },
+    {
+      "id": "viaje-204",
+      "name": "Descanso Reglamentario",
+      "start": "2025-09-02T12:00:00",
+      "end": "2025-09-02T13:30:00",
+      "status": "descanso",
+      "resourceIds": ["C0025"],
+      "details": {
+        "Tipo": "Descanso mediodía"
+      }
+    },
+    {
+      "id": "viaje-205",
+      "name": "Viaje a Barcelona (Cancelado)",
+      "start": "2025-09-02T08:00:00",
+      "end": "2025-09-02T15:00:00",
+      "status": "cancelado",
+      "resourceIds": ["T0009", "P0018", "C0009"],
+      "details": {
+        "Motivo Cancelación": "Cancelado por el cliente por falta de stock en origen",
+        "Aviso": "07:30 AM"
+      }
+    },
+    {
+      "id": "viaje-206",
+      "name": "Revision ITV Plataforma",
+      "start": "2025-09-02T09:00:00",
+      "end": "2025-09-02T12:30:00",
+      "status": "mantenimiento",
+      "resourceIds": ["P0018"],
+      "details": {
+        "Centro": "ITV Getafe",
+        "Tipo": "Inspección periódica semirremolque"
+      }
+    },
+    {
+      "id": "viaje-301",
+      "name": "ZARAGOZA → BARCELONA",
+      "start": "2025-09-03T05:30:00",
+      "end": "2025-09-03T11:00:00",
+      "status": "en_viaje",
+      "resourceIds": ["T0001", "P0008", "C0090"],
+      "details": {
+        "Origen": "Zaragoza",
+        "Destino": "Zona Franca Barcelona",
+        "Prioridad": "Alta"
+      }
+    },
+    {
+      "id": "viaje-302",
+      "name": "Descarga Contenedor Puerto",
+      "start": "2025-09-03T11:30:00",
+      "end": "2025-09-03T14:30:00",
+      "status": "en_carga",
+      "resourceIds": ["T0001", "P0008", "C0090"],
+      "details": {
+        "Lugar": "Terminal BEST Barcelona",
+        "Operación": "Descarga de exportación"
+      }
+    },
+    {
+      "id": "viaje-303",
+      "name": "MADRID → VALLADOLID",
+      "start": "2025-09-03T07:00:00",
+      "end": "2025-09-03T11:30:00",
+      "status": "en_viaje",
+      "resourceIds": ["T0015", "P0022", "C0020"],
+      "details": {
+        "Origen": "Madrid Centro",
+        "Destino": "Valladolid Polígono San Cristóbal"
       }
     }
   ]

@@ -1,311 +1,859 @@
-/* Contenedor principal del Visor de Flota */
-.fg-container {
-    display: flex;
-    flex-direction: column;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    border: 1px solid #d0d7de;
-    border-radius: 8px;
-    background: #ffffff;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    overflow: hidden;
+/* ==========================================================================
+   TRANSKAL - MONITOR DE OCUPACIÓN DE FLOTA
+   Estilos corporativos de alta definición para el componente Gantt
+   ========================================================================== */
+
+:root {
+    --tk-olive: #7A9B0B;             /* Verde corporativo Transkal */
+    --tk-olive-dark: #5F7A07;
+    --tk-olive-light: #F0F5DD;
+    --tk-bg-search-panel: #EAECEE;   /* Fondo exacto franja Transkal */
+    --tk-border-panel: #D0D4D9;
+    
+    --fg-border: #D1D5DB;
+    --fg-border-light: #E5E7EB;
+    --fg-text: #1E293B;
+    --fg-text-muted: #64748B;
+    --fg-bg-page: #F3F4F6;
+
+    /* PALETA EQUILIBRADA DE ESTADOS (Nítida, contrastada y legible) */
+    --color-viaje-bg: #16A34A;
+    --color-viaje-border: #15803D;
+
+    --color-carga-bg: #0284C7;
+    --color-carga-border: #0369A1;
+
+    --color-mant-bg: #EA580C;
+    --color-mant-border: #C2410C;
+
+    --color-averia-bg: #DC2626;
+    --color-averia-border: #B91C1C;
+
+    --color-descanso-bg: #8B5CF6;
+    --color-descanso-border: #7C3AED;
+
+    --color-retraso-bg: #F97316;
+    --color-retraso-border: #EA580C;
+
+    --color-cancel-bg: #64748B;
+    --color-cancel-border: #475569;
+
+    --color-reservado-bg: #EAB308;
+    --color-reservado-border: #CA8A04;
+
+    --color-libre-bg: #F8FAFC;
+    --color-libre-border: #CBD5E1;
 }
 
-/* Barra de herramientas */
+/* Reset y estructura base */
+body.fg-app-body {
+    margin: 0;
+    padding: 10px 16px;
+    background-color: var(--fg-bg-page);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--fg-text);
+    box-sizing: border-box;
+}
+
+/* 1. TÍTULO TRANSKAL */
+.fg-page-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    margin-bottom: 8px;
+    padding: 2px 0;
+}
+
+.tk-title-prefix {
+    color: var(--tk-olive);
+    font-weight: 800;
+    letter-spacing: 0.2px;
+}
+
+.tk-title-arrow {
+    color: #94A3B8;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.tk-title-main {
+    color: #0F172A;
+    font-weight: 700;
+}
+
+/* 2. CAJA DE LEYENDA */
+.fg-legend-card {
+    background-color: var(--tk-bg-search-panel);
+    border: 1px solid var(--tk-border-panel);
+    border-radius: 5px;
+    padding: 6px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    user-select: none;
+}
+
+.fg-legend-title {
+    color: var(--tk-olive-dark);
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    margin-right: 4px;
+}
+
+.fg-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #334155;
+    padding: 3px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.15s, transform 0.1s;
+}
+
+.fg-legend-item:hover {
+    background-color: rgba(255, 255, 255, 0.7);
+}
+
+.fg-legend-item.active {
+    background-color: #FFFFFF;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    font-weight: 700;
+    color: #0F172A;
+}
+
+.fg-legend-swatch {
+    width: 13px;
+    height: 13px;
+    border-radius: 3px;
+    display: inline-block;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+.fg-swatch-conflict {
+    background-color: #FFFFFF;
+    border: 2px solid #EF4444;
+}
+
+/* Colores de swatch vinculados */
+.fg-legend-swatch.fg-status-en_viaje      { background-color: var(--color-viaje-bg); }
+.fg-legend-swatch.fg-status-en_carga      { background-color: var(--color-carga-bg); }
+.fg-legend-swatch.fg-status-mantenimiento { background-color: var(--color-mant-bg); }
+.fg-legend-swatch.fg-status-averiado      { background-color: var(--color-averia-bg); }
+.fg-legend-swatch.fg-status-descanso      { background-color: var(--color-descanso-bg); }
+.fg-legend-swatch.fg-status-retrasado     { background-color: var(--color-retraso-bg); }
+.fg-legend-swatch.fg-status-cancelado     { background-color: var(--color-cancel-bg); }
+.fg-legend-swatch.fg-status-reservado     { background-color: var(--color-reservado-bg); }
+.fg-legend-swatch.fg-status-libre         { background-color: var(--color-libre-bg); border: 1px dashed var(--color-libre-border); }
+
+/* 3. CONTENEDOR PRINCIPAL DEL GANTT */
+.fg-container {
+    background-color: #FFFFFF;
+    border: 1px solid var(--fg-border);
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+/* BARRA DE HERRAMIENTAS (TOOLBAR) */
 .fg-toolbar {
+    background-color: #F8FAFC;
+    border-bottom: 1px solid var(--fg-border);
+    padding: 6px 12px;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
-    padding: 10px 15px;
-    background: #f6f8fa;
-    border-bottom: 1px solid #d0d7de;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
 .fg-toolbar-group {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 
-.fg-btn {
-    padding: 6px 12px;
-    font-size: 13px;
-    font-weight: 500;
-    border: 1px solid #d0d7de;
-    border-radius: 6px;
-    background: #ffffff;
+.fg-toolbar-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748B;
+    margin-right: 2px;
+}
+
+/* Botones de Zoom en Segmented Control */
+.fg-zoom-group {
+    background-color: #E2E8F0;
+    padding: 2px;
+    border-radius: 5px;
+}
+
+.fg-zoom-btn {
+    background-color: transparent;
+    color: #334155;
+    border: none;
+    padding: 4px 9px;
+    font-size: 11px;
+    font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.2s, border-color 0.2s;
+    border-radius: 4px;
+    transition: all 0.15s ease;
 }
 
-.fg-btn:hover { background: #f3f4f6; }
-.fg-btn.active { background: #0969da; color: #ffffff; border-color: #0969da; }
-
-.fg-select, .fg-input {
-    padding: 5px 10px;
-    font-size: 13px;
-    border: 1px solid #d0d7de;
-    border-radius: 6px;
+.fg-zoom-btn:hover {
+    background-color: rgba(255, 255, 255, 0.5);
 }
 
-/* Cuerpo del visor: Panel izquierdo de recursos y timeline derecho */
-.fg-body {
+.fg-zoom-btn.active {
+    background-color: var(--tk-olive);
+    color: #FFFFFF;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+/* Filtros y Entradas */
+.fg-select {
+    border: 1px solid var(--fg-border);
+    background-color: #FFFFFF;
+    color: #334155;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 4px;
+    height: 28px;
+    outline: none;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.fg-select:focus {
+    border-color: var(--tk-olive);
+}
+
+.fg-search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.fg-search-icon {
+    position: absolute;
+    left: 7px;
+    font-size: 11px;
+    color: #94A3B8;
+    pointer-events: none;
+}
+
+.fg-search-input {
+    border: 1px solid var(--fg-border);
+    background-color: #FFFFFF;
+    color: #334155;
+    font-size: 11px;
+    padding: 4px 24px 4px 26px;
+    border-radius: 4px;
+    height: 28px;
+    width: 190px;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.fg-search-input:focus {
+    border-color: var(--tk-olive);
+    width: 220px;
+    transition: width 0.2s ease;
+}
+
+.fg-search-clear {
+    position: absolute;
+    right: 5px;
+    background: none;
+    border: none;
+    color: #94A3B8;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.fg-search-clear:hover {
+    color: #334155;
+}
+
+/* Botón de Conflictos */
+.fg-btn-conflict {
+    background-color: #FFFFFF;
+    border: 1px solid var(--fg-border);
+    color: #475569;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 4px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    box-sizing: border-box;
+    transition: all 0.15s ease;
+}
+
+.fg-btn-conflict.has-conflicts {
+    border-color: #FCA5A5;
+    background-color: #FEF2F2;
+    color: #B91C1C;
+}
+
+.fg-btn-conflict.active {
+    background-color: #EF4444;
+    border-color: #DC2626;
+    color: #FFFFFF;
+}
+
+.fg-conflict-badge {
+    background-color: #EF4444;
+    color: #FFFFFF;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 10px;
+    line-height: 1.2;
+}
+
+.fg-btn-conflict.active .fg-conflict-badge {
+    background-color: #FFFFFF;
+    color: #EF4444;
+}
+
+/* Botón Exportar */
+.fg-btn-export {
+    background-color: #FFFFFF;
+    border: 1px solid var(--fg-border);
+    color: #334155;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 4px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    box-sizing: border-box;
+}
+
+.fg-btn-export:hover {
+    background-color: #F1F5F9;
+    border-color: #CBD5E1;
+}
+
+/* ==========================================================================
+   SCROLL UNIFICADO (GRID MATRIX)
+   ========================================================================== */
+
+.fg-grid-viewport {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    position: relative;
+    background-color: #FFFFFF;
+}
+
+.fg-grid-matrix {
     display: flex;
     position: relative;
-    overflow: hidden;
-    height: 100%;
+    min-width: 100%;
 }
 
+/* Columna Lateral de Recursos (Sticky Left) */
 .fg-sidebar {
     width: 220px;
     min-width: 220px;
-    background: #fafbfc;
-    border-right: 1px solid #e1e4e8;
-    z-index: 10;
+    max-width: 220px;
+    background-color: #FFFFFF;
+    border-right: 1px solid var(--fg-border);
+    position: sticky;
+    left: 0;
+    z-index: 25;
+    flex-shrink: 0;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.04);
 }
 
 .fg-sidebar-header {
-    height: 48px;
+    height: 44px;
+    border-bottom: 1px solid var(--fg-border);
     display: flex;
     align-items: center;
-    padding-left: 15px;
-    font-weight: 600;
-    font-size: 13px;
-    color: #57606a;
-    border-bottom: 1px solid #e1e4e8;
+    padding: 0 12px;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--tk-olive-dark);
+    background-color: #F8FAFC;
+    letter-spacing: 0.5px;
+    box-sizing: border-box;
+    position: sticky;
+    top: 0;
+    z-index: 35;
+}
+
+.fg-resource-group {
+    background-color: #E2E8F0;
+    color: #1E293B;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--fg-border);
+    letter-spacing: 0.4px;
+    height: 30px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.fg-group-badge {
+    background-color: #CBD5E1;
+    color: #334155;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 8px;
 }
 
 .fg-resource-row {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     padding: 0 12px;
-    font-size: 13px;
-    font-weight: 500;
-    border-bottom: 1px solid #f0f2f5;
+    font-size: 11px;
+    font-weight: 600;
+    color: #334155;
+    border-bottom: 1px solid var(--fg-border-light);
+    box-sizing: border-box;
+    background-color: #FFFFFF;
+    transition: background-color 0.1s ease;
+}
+
+.fg-resource-row:hover {
+    background-color: #F8FAFC;
+}
+
+.fg-resource-name {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    box-sizing: border-box;
+    padding-right: 6px;
 }
 
-.fg-resource-group {
-    background: #eaeef2;
-    font-size: 11px;
+.fg-lane-badge {
+    font-size: 9px;
     font-weight: 700;
-    color: #484f58;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    padding-left: 12px;
-    border-bottom: 1px solid #e1e4e8;
+    color: #DC2626;
+    background-color: #FEE2E2;
+    border: 1px solid #FECACA;
+    padding: 1px 4px;
+    border-radius: 3px;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
-/* Timeline horizontal */
-.fg-timeline-scroll {
+/* Área de Tiempo (Tracks) */
+.fg-timeline-area {
     flex: 1;
-    overflow-x: auto;
-    overflow-y: hidden;
     position: relative;
-    background: #ffffff;
+    background-color: #FFFFFF;
 }
 
+/* Cabecera de Horas (Sticky Top) */
 .fg-timeline-header {
-    height: 48px;
-    position: relative;
-    background: #fafbfc;
-    border-bottom: 1px solid #e1e4e8;
-}
-
-.fg-grid-tick {
-    position: absolute;
+    height: 44px;
+    border-bottom: 1px solid var(--fg-border);
+    background-color: #F8FAFC;
+    position: sticky;
     top: 0;
-    bottom: 0;
-    border-left: 1px dashed #e8ecf0;
+    z-index: 20;
+    box-sizing: border-box;
 }
 
 .fg-tick-label {
     position: absolute;
-    top: 10px;
-    font-size: 11px;
-    color: #656d76;
+    top: 6px;
+    font-size: 10px;
+    color: #64748B;
     transform: translateX(-50%);
     text-align: center;
     line-height: 1.3;
+    pointer-events: none;
 }
 
-.fg-tick-label:first-child {
-    transform: translateX(0);
-    text-align: left;
-    padding-left: 6px;
+.fg-tick-label strong {
+    color: #1E293B;
+}
+
+.fg-tick-date {
+    font-size: 9px;
+    color: #94A3B8;
 }
 
 .fg-tracks {
     position: relative;
 }
 
+.fg-track-group-spacer {
+    height: 30px;
+    background-color: #E2E8F0;
+    border-bottom: 1px solid var(--fg-border);
+    box-sizing: border-box;
+}
+
 .fg-track-row {
     position: relative;
-    border-bottom: 1px solid #f0f2f5;
+    border-bottom: 1px solid var(--fg-border-light);
     box-sizing: border-box;
 }
 
-.fg-track-group-spacer {
-    height: 28px;
-    background: #f6f8fa;
-    border-bottom: 1px solid #e1e4e8;
+.fg-grid-tick {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background-color: #F1F5F9;
+    pointer-events: none;
 }
 
-/* Barras de tarea */
+/* ==========================================================================
+   BARRAS GANTT (ALTO CONTRASTE Y TIPOGRAFÍA BLANCA NÍTIDA)
+   ========================================================================== */
+
 .fg-bar {
     position: absolute;
-    top: 12px;
-    height: 32px;
-    border-radius: 5px;
-    color: #ffffff;
-    font-size: 12px;
-    font-weight: 500;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #FFFFFF;
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     padding: 0 8px;
-    cursor: pointer;
-    box-sizing: border-box;
+    gap: 5px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    cursor: pointer;
+    box-sizing: border-box;
+    border-width: 1px;
+    border-style: solid;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+    transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.1s ease;
 }
 
 .fg-bar:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.25);
-    z-index: 20;
+    filter: brightness(1.08);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+    z-index: 10;
 }
 
-/* Colores según Estado */
-.fg-status-en_viaje      { background-color: #4CAF50; }
-.fg-status-en_carga      { background-color: #2196F3; }
-.fg-status-mantenimiento { background-color: #FF9800; }
-.fg-status-averiado      { background-color: #F44336; }
-.fg-status-descanso      { background-color: #9C27B0; }
-.fg-status-retrasado     { background-color: #FF5722; }
-.fg-status-cancelado     { background-color: #9E9E9E; }
-.fg-status-libre         { background-color: #E0E0E0; color: #424242; }
-.fg-status-reservado     { background-color: #FFC107; color: #212121; }
-
-/* Resaltado de Conflictos (Solapamientos) */
-.fg-has-conflict {
-    border: 2px solid #D32F2F !important;
-    background-image: repeating-linear-gradient(
-        45deg,
-        rgba(211, 47, 47, 0.25),
-        rgba(211, 47, 47, 0.25) 8px,
-        transparent 8px,
-        transparent 16px
-    );
-    box-shadow: 0 0 10px rgba(211, 47, 47, 0.6) !important;
-    animation: fg-pulse-conflict 2s infinite ease-in-out;
+.fg-bar-icon {
+    font-size: 11px;
+    line-height: 1;
+    flex-shrink: 0;
 }
 
-/* Barra con solapamiento / altura reducida */
-.fg-bar.fg-bar-compact {
-    height: 20px !important;
-    line-height: 20px !important;
-    font-size: 11px !important;
-    padding: 0 6px !important;
-    border-radius: 4px !important;
+.fg-bar-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-@keyframes fg-pulse-conflict {
-    0%   { box-shadow: 0 0 4px rgba(211, 47, 47, 0.5); }
-    50%  { box-shadow: 0 0 12px rgba(211, 47, 47, 0.9); }
-    100% { box-shadow: 0 0 4px rgba(211, 47, 47, 0.5); }
+/* Estados */
+.fg-status-en_viaje {
+    background-color: var(--color-viaje-bg);
+    border-color: var(--color-viaje-border);
 }
 
-/* Tooltip */
-.fg-tooltip {
-    position: fixed;
-    display: none;
-    background: #24292f;
-    color: #ffffff;
-    padding: 10px 14px;
-    border-radius: 6px;
-    font-size: 12px;
-    line-height: 1.4;
-    z-index: 1000;
-    pointer-events: none;
-    box-shadow: 0 6px 16px rgba(0,0,0,0.3);
-    max-width: 320px;
+.fg-status-en_carga {
+    background-color: var(--color-carga-bg);
+    border-color: var(--color-carga-border);
 }
 
-/* Modal de Detalles */
-.fg-modal-overlay {
-    display: none;
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 2000;
-    align-items: center;
+.fg-status-mantenimiento {
+    background-color: var(--color-mant-bg);
+    border-color: var(--color-mant-border);
+}
+
+.fg-status-averiado {
+    background-color: var(--color-averia-bg);
+    border-color: var(--color-averia-border);
+}
+
+.fg-status-descanso {
+    background-color: var(--color-descanso-bg);
+    border-color: var(--color-descanso-border);
+}
+
+.fg-status-retrasado {
+    background-color: var(--color-retraso-bg);
+    border-color: var(--color-retraso-border);
+}
+
+.fg-status-cancelado {
+    background-color: var(--color-cancel-bg);
+    border-color: var(--color-cancel-border);
+    text-decoration: line-through;
+    opacity: 0.85;
+}
+
+.fg-status-reservado {
+    background-color: var(--color-reservado-bg);
+    border-color: var(--color-reservado-border);
+    color: #1E293B !important;
+    text-shadow: none !important;
+}
+
+/* Bloque Disponible (Silencioso, sutil y limpio) */
+.fg-bar.fg-status-libre {
+    background-color: var(--color-libre-bg) !important;
+    border: 1px dashed var(--color-libre-border) !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    cursor: default;
     justify-content: center;
 }
 
-.fg-modal {
-    background: #ffffff;
-    border-radius: 8px;
-    width: 460px;
-    max-width: 90vw;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+.fg-bar.fg-status-libre:hover {
+    background-color: #F1F5F9 !important;
+    border-color: #94A3B8 !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.fg-free-text {
+    font-size: 10px;
+    font-weight: 500;
+    color: #94A3B8;
+    pointer-events: none;
+}
+
+/* Barras compactas en solapamiento */
+.fg-bar.fg-bar-compact {
+    font-size: 10px;
+    padding: 0 5px;
+}
+
+/* Indicador de Conflicto */
+.fg-bar.fg-has-conflict {
+    border: 2px solid #DC2626 !important;
+    box-shadow: 0 0 6px rgba(220, 38, 38, 0.5) !important;
+}
+
+.fg-icon-conflict {
+    font-size: 11px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+/* Iluminación sincronizada (Cross-Highlighting) */
+.fg-bar.fg-bar-highlighted {
+    outline: 2px solid #0284C7 !important;
+    box-shadow: 0 0 8px rgba(2, 132, 199, 0.7) !important;
+    z-index: 15 !important;
+}
+
+/* ==========================================================================
+   TOOLTIPS Y MODALES MODERNOS
+   ========================================================================== */
+
+.fg-tooltip {
+    position: fixed;
+    background-color: #0F172A;
+    color: #FFFFFF;
+    font-size: 11px;
+    padding: 0;
+    border-radius: 6px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.35);
+    display: none;
+    z-index: 9999;
+    pointer-events: none;
+    max-width: 320px;
     overflow: hidden;
+    border: 1px solid #334155;
+    line-height: 1.4;
+}
+
+.fg-tt-header {
+    padding: 7px 10px;
+    font-weight: 700;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background-color: #1E293B;
+    border-bottom: 1px solid #334155;
+}
+
+.fg-tt-header.fg-tt-status-en_viaje      { background-color: #14532D; color: #BBF7D0; }
+.fg-tt-header.fg-tt-status-en_carga      { background-color: #0C4A6E; color: #BAE6FD; }
+.fg-tt-header.fg-tt-status-mantenimiento { background-color: #7C2D12; color: #FED7AA; }
+.fg-tt-header.fg-tt-status-averiado      { background-color: #7F1D1D; color: #FECACA; }
+.fg-tt-header.fg-tt-status-descanso      { background-color: #581C87; color: #E9D5FF; }
+.fg-tt-header.fg-tt-status-retrasado     { background-color: #7C2D12; color: #FED7AA; }
+.fg-tt-header.fg-tt-status-cancelado     { background-color: #334155; color: #E2E8F0; }
+.fg-tt-header.fg-tt-status-reservado     { background-color: #713F12; color: #FEF08A; }
+.fg-tt-header.fg-tt-free-header          { background-color: #1E293B; color: #86EFAC; }
+
+.fg-tt-badge {
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background-color: rgba(255, 255, 255, 0.2);
+    text-transform: uppercase;
+}
+
+.fg-tt-duration {
+    font-size: 10px;
+    color: #94A3B8;
+}
+
+.fg-tt-body {
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.fg-tt-row {
+    display: flex;
+    gap: 4px;
+    font-size: 11px;
+}
+
+.fg-tt-row strong {
+    color: #94A3B8;
+    min-width: 65px;
+    flex-shrink: 0;
+}
+
+.fg-tt-row span {
+    color: #E2E8F0;
+    word-break: break-word;
+}
+
+.fg-tt-conflict-alert {
+    background-color: #7F1D1D;
+    color: #FECACA;
+    padding: 5px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    border-bottom: 1px solid #991B1B;
+}
+
+.fg-tt-conflict-warn {
+    background-color: #78350F;
+    color: #FDE68A;
+    padding: 5px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    border-bottom: 1px solid #92400E;
+}
+
+/* Modal */
+.fg-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(2px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+}
+
+.fg-modal {
+    background-color: #FFFFFF;
+    border-radius: 6px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.25);
+    width: 480px;
+    max-width: 90%;
+    overflow: hidden;
+    border: 1px solid var(--fg-border);
 }
 
 .fg-modal-header {
-    padding: 15px 20px;
-    background: #f6f8fa;
-    border-bottom: 1px solid #d0d7de;
+    background-color: #F8FAFC;
+    border-bottom: 1px solid var(--fg-border);
+    padding: 12px 18px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #0F172A;
 }
 
 .fg-modal-body {
-    padding: 20px;
-    font-size: 13px;
+    padding: 16px 18px;
+    max-height: 440px;
+    overflow-y: auto;
 }
 
 .fg-modal-row {
     display: flex;
-    justify-content: space-between;
-    padding: 6px 0;
-    border-bottom: 1px solid #f0f2f5;
+    border-bottom: 1px solid #F1F5F9;
+    padding: 7px 0;
+    font-size: 12px;
+}
+
+.fg-modal-row:last-child {
+    border-bottom: none;
 }
 
 .fg-modal-label {
-    font-weight: 600;
-    color: #57606a;
+    width: 140px;
+    font-weight: 700;
+    color: #64748B;
+    flex-shrink: 0;
 }
 
-/* Bloque Libre / Disponible calculado automáticamente */
-.fg-bar.fg-status-libre {
-    background: #f1f3f5 !important;
-    color: #495057 !important;
-    border: 1px dashed #ced4da !important;
-    cursor: default;
-    font-size: 11px;
-    opacity: 0.85;
+.fg-modal-status-badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #FFFFFF;
+    display: inline-block;
 }
 
-.fg-bar.fg-status-libre:hover {
-    opacity: 1;
-    border-color: #adb5bd !important;
-    background: #e9ecef !important;
+.fg-modal-alert {
+    background-color: #FEF2F2;
+    padding: 6px 8px;
+    border-radius: 4px;
+    color: #B91C1C;
+    margin: 4px 0;
 }
 
-/* Iluminación sincronizada (al pasar el ratón por el tractor se iluminan conductor y plataforma) */
-.fg-bar.fg-bar-highlighted {
-    outline: 2px solid #0969da !important;
-    box-shadow: 0 0 8px rgba(9, 105, 218, 0.45) !important;
-    z-index: 10 !important;
+.fg-modal-alert .fg-modal-label {
+    color: #DC2626;
+}
+
+.fg-modal-close-btn {
+    background: none;
+    border: none;
+    font-size: 18px;
+    color: #64748B;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.fg-modal-close-btn:hover {
+    color: #0F172A;
 }

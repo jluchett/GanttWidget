@@ -27,6 +27,9 @@ public class FleetGanttBean implements Serializable {
     }
 
     public String getFleetScheduleJson() {
+        if (fleetScheduleJson == null || fleetScheduleJson.trim().isEmpty()) {
+            this.fleetScheduleJson = dataService.loadFleetScheduleAsJson();
+        }
         return fleetScheduleJson;
     }
 }

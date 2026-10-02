@@ -4,7 +4,7 @@ class FleetGanttViewer {
         this.container = document.getElementById(this.containerId);
         this.rawSchedule = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
         this.zoomHours = config.defaultZoomHours || 2;
-        this.hourWidth = 60;
+        this.hourWidth = this.calculateHourWidth(this.zoomHours);
         this.filterType = 'ALL';
         this.filterStatus = 'ALL';
         this.filterText = '';
@@ -15,11 +15,29 @@ class FleetGanttViewer {
         this.populateDynamicFilters();
         this.detectClientConflicts();
         this.computeTimelineBounds();
+        this.bindGlobalLegend();
         this.render();
     }
 
-    // Normaliza resourceIds soportando tanto el formato nuevo como el anterior
+    calculateHourWidth(zoomHours) {
+        switch (zoomHours) {
+            case 1: return 80;
+            case 2: return 50;
+            case 4: return 32;
+            case 24: return 14;
+            default: return 50;
+        }
+    }
+
     normalizeTasks() {
+        if (!this.rawSchedule || !Array.isArray(this.rawSchedule.tasks)) {
+            this.rawSchedule = { resources: [], tasks: [] };
+            return;
+        }
+        if (!Array.isArray(this.rawSchedule.resources)) {
+            this.rawSchedule.resources = [];
+        }
+
         this.rawSchedule.tasks.forEach(t => {
             if (!Array.isArray(t.resourceIds)) {
                 t.resourceIds = [];
@@ -49,43 +67,67 @@ class FleetGanttViewer {
         return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
 
+    formatTimeOnly(val) {
+        const d = this.parseDate(val);
+        if (isNaN(d.getTime())) return '';
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
     initDOM() {
         const cId = this.containerId;
+        this.container.className = 'fg-container';
         this.container.innerHTML = `
             <div class="fg-toolbar">
-                <div class="fg-toolbar-group">
-                    <button class="fg-btn" data-zoom="1">1h</button>
-                    <button class="fg-btn active" data-zoom="2">2h</button>
-                    <button class="fg-btn" data-zoom="4">4h</button>
-                    <button class="fg-btn" data-zoom="24">1 Día</button>
+                <div class="fg-toolbar-group fg-zoom-group">
+                    <span class="fg-toolbar-label">Zoom:</span>
+                    <button class="fg-btn fg-zoom-btn ${this.zoomHours === 1 ? 'active' : ''}" data-zoom="1">1h</button>
+                    <button class="fg-btn fg-zoom-btn ${this.zoomHours === 2 ? 'active' : ''}" data-zoom="2">2h</button>
+                    <button class="fg-btn fg-zoom-btn ${this.zoomHours === 4 ? 'active' : ''}" data-zoom="4">4h</button>
+                    <button class="fg-btn fg-zoom-btn ${this.zoomHours === 24 ? 'active' : ''}" data-zoom="24">1 D&#237;a</button>
                 </div>
-                <div class="fg-toolbar-group">
-                    <select class="fg-select" id="${cId}_typeFilter">
+                <div class="fg-toolbar-group fg-filter-group">
+                    <select class="fg-select" id="${cId}_typeFilter" title="Filtrar por tipo de recurso">
                         <option value="ALL">Todos los Tipos</option>
                     </select>
-                    <select class="fg-select" id="${cId}_statusFilter">
+                    <select class="fg-select" id="${cId}_statusFilter" title="Filtrar por estado">
                         <option value="ALL">Todos los Estados</option>
                     </select>
-                    <input type="text" class="fg-input" id="${cId}_search" placeholder="Buscar recurso o actividad...">
-                    <button class="fg-btn" id="${cId}_conflictToggle">⚠️ Conflictos</button>
+                    <div class="fg-search-box">
+                        <span class="fg-search-icon">&#128269;</span>
+                        <input type="text" class="fg-input fg-search-input" id="${cId}_search" placeholder="Buscar veh&#237;culo o viaje..." />
+                        <button class="fg-search-clear" id="${cId}_searchClear" title="Limpiar b&#250;squeda">&times;</button>
+                    </div>
+                    <button class="fg-btn fg-btn-conflict" id="${cId}_conflictToggle" title="Filtrar solo actividades con conflicto">
+                        &#9888;&#65039; Conflictos <span class="fg-conflict-badge" id="${cId}_conflictBadge">0</span>
+                    </button>
                 </div>
-                <div class="fg-toolbar-group">
-                    <button class="fg-btn" id="${cId}_exportJson">JSON</button>
+                <div class="fg-toolbar-group fg-action-group">
+                    <button class="fg-btn fg-btn-export" id="${cId}_exportJson" title="Descargar datos en formato JSON">
+                        &#128190; JSON
+                    </button>
                 </div>
             </div>
-            <div class="fg-body">
-                <div class="fg-sidebar" id="${cId}_sidebar"></div>
-                <div class="fg-timeline-scroll" id="${cId}_scroll">
-                    <div class="fg-timeline-header" id="${cId}_header"></div>
-                    <div class="fg-tracks" id="${cId}_tracks"></div>
+
+            <!-- Viewport con scroll horizontal y vertical unificado -->
+            <div class="fg-grid-viewport" id="${cId}_viewport">
+                <div class="fg-grid-matrix" id="${cId}_matrix">
+                    <div class="fg-sidebar" id="${cId}_sidebar">
+                        <div class="fg-sidebar-header">RECURSOS</div>
+                    </div>
+                    <div class="fg-timeline-area" id="${cId}_timelineArea">
+                        <div class="fg-timeline-header" id="${cId}_header"></div>
+                        <div class="fg-tracks" id="${cId}_tracks"></div>
+                    </div>
                 </div>
             </div>
+
             <div class="fg-tooltip" id="${cId}_tooltip"></div>
             <div class="fg-modal-overlay" id="${cId}_modalOverlay">
                 <div class="fg-modal">
                     <div class="fg-modal-header">
-                        <h4 id="${cId}_modalTitle" style="margin:0;">Detalle</h4>
-                        <button class="fg-btn" id="${cId}_modalClose">&times;</button>
+                        <span id="${cId}_modalTitle">Detalle de Actividad</span>
+                        <button class="fg-modal-close-btn" id="${cId}_modalClose">&times;</button>
                     </div>
                     <div class="fg-modal-body" id="${cId}_modalBody"></div>
                 </div>
@@ -95,17 +137,13 @@ class FleetGanttViewer {
         this.bindEvents();
     }
 
-    // Extrae y puebla dinámicamente los selectores según el dataset suministrado
     populateDynamicFilters() {
         const cId = this.containerId;
         const typeSelect = document.getElementById(`${cId}_typeFilter`);
         const statusSelect = document.getElementById(`${cId}_statusFilter`);
 
         const types = new Set();
-        this.rawSchedule.resources.forEach(r => {
-            if (r.type) types.add(r.type);
-        });
-
+        this.rawSchedule.resources.forEach(r => { if (r.type) types.add(r.type); });
         types.forEach(t => {
             const opt = document.createElement('option');
             opt.value = t;
@@ -117,7 +155,6 @@ class FleetGanttViewer {
         this.rawSchedule.tasks.forEach(task => {
             if (task.status && task.status !== 'libre') statuses.add(task.status);
         });
-
         statuses.forEach(s => {
             const opt = document.createElement('option');
             opt.value = s;
@@ -128,48 +165,130 @@ class FleetGanttViewer {
 
     bindEvents() {
         const cId = this.containerId;
-        this.container.querySelectorAll('.fg-toolbar [data-zoom]').forEach(btn => {
+
+        // Botones de Zoom
+        this.container.querySelectorAll('.fg-zoom-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                this.container.querySelectorAll('.fg-toolbar [data-zoom]').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                this.zoomHours = parseInt(e.target.getAttribute('data-zoom'), 10);
-                this.hourWidth = this.zoomHours === 1 ? 100 : (this.zoomHours === 2 ? 60 : (this.zoomHours === 4 ? 35 : 15));
+                this.container.querySelectorAll('.fg-zoom-btn').forEach(b => b.classList.remove('active'));
+                const target = e.currentTarget;
+                target.classList.add('active');
+                this.zoomHours = parseInt(target.getAttribute('data-zoom'), 10);
+                this.hourWidth = this.calculateHourWidth(this.zoomHours);
                 this.render();
             });
         });
 
+        // Filtro por tipo
         document.getElementById(`${cId}_typeFilter`).addEventListener('change', (e) => {
             this.filterType = e.target.value;
             this.render();
         });
 
-        document.getElementById(`${cId}_statusFilter`).addEventListener('change', (e) => {
+        // Filtro por estado
+        const statusSel = document.getElementById(`${cId}_statusFilter`);
+        statusSel.addEventListener('change', (e) => {
             this.filterStatus = e.target.value;
+            this.syncGlobalLegendActive();
             this.render();
         });
 
-        document.getElementById(`${cId}_search`).addEventListener('input', (e) => {
-            this.filterText = e.target.value.toLowerCase();
+        // Búsqueda de texto
+        const searchInput = document.getElementById(`${cId}_search`);
+        const searchClear = document.getElementById(`${cId}_searchClear`);
+        searchInput.addEventListener('input', (e) => {
+            this.filterText = e.target.value.toLowerCase().trim();
+            searchClear.style.display = this.filterText ? 'block' : 'none';
+            this.render();
+        });
+        searchClear.addEventListener('click', () => {
+            searchInput.value = '';
+            this.filterText = '';
+            searchClear.style.display = 'none';
+            searchInput.focus();
             this.render();
         });
 
-        document.getElementById(`${cId}_conflictToggle`).addEventListener('click', (e) => {
+        // Toggle de conflictos
+        const conflictBtn = document.getElementById(`${cId}_conflictToggle`);
+        conflictBtn.addEventListener('click', () => {
             this.onlyConflicts = !this.onlyConflicts;
-            e.target.classList.toggle('active', this.onlyConflicts);
+            conflictBtn.classList.toggle('active', this.onlyConflicts);
+            this.syncGlobalLegendConflict();
             this.render();
         });
 
+        // Exportar JSON
         document.getElementById(`${cId}_exportJson`).addEventListener('click', () => {
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.rawSchedule, null, 2));
             const dlAnchor = document.createElement('a');
             dlAnchor.setAttribute("href", dataStr);
-            dlAnchor.setAttribute("download", "schedule_export.json");
+            dlAnchor.setAttribute("download", "ocupacion_flota.json");
             dlAnchor.click();
         });
 
+        // Modal de detalle
         const overlay = document.getElementById(`${cId}_modalOverlay`);
         document.getElementById(`${cId}_modalClose`).addEventListener('click', () => overlay.style.display = 'none');
         overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.style.display = 'none'; });
+
+        // Scroll horizontal con Shift + Rueda
+        const viewport = document.getElementById(`${cId}_viewport`);
+        if (viewport) {
+            viewport.addEventListener('wheel', (e) => {
+                if (e.shiftKey) {
+                    viewport.scrollLeft += e.deltaY;
+                }
+            }, { passive: true });
+        }
+    }
+
+    bindGlobalLegend() {
+        const legendCard = document.getElementById('fgGlobalLegend');
+        if (!legendCard) return;
+
+        legendCard.querySelectorAll('.fg-legend-item[data-status]').forEach(item => {
+            item.addEventListener('click', () => {
+                const status = item.getAttribute('data-status');
+                if (this.filterStatus === status) {
+                    this.filterStatus = 'ALL';
+                } else {
+                    this.filterStatus = status;
+                }
+                const statusSel = document.getElementById(`${this.containerId}_statusFilter`);
+                if (statusSel) statusSel.value = this.filterStatus;
+                this.syncGlobalLegendActive();
+                this.render();
+            });
+        });
+
+        const conflictItem = legendCard.querySelector('.fg-legend-conflict');
+        if (conflictItem) {
+            conflictItem.addEventListener('click', () => {
+                this.onlyConflicts = !this.onlyConflicts;
+                const conflictBtn = document.getElementById(`${this.containerId}_conflictToggle`);
+                if (conflictBtn) conflictBtn.classList.toggle('active', this.onlyConflicts);
+                this.syncGlobalLegendConflict();
+                this.render();
+            });
+        }
+    }
+
+    syncGlobalLegendActive() {
+        const legendCard = document.getElementById('fgGlobalLegend');
+        if (!legendCard) return;
+        legendCard.querySelectorAll('.fg-legend-item[data-status]').forEach(item => {
+            const status = item.getAttribute('data-status');
+            item.classList.toggle('active', this.filterStatus === status);
+        });
+    }
+
+    syncGlobalLegendConflict() {
+        const legendCard = document.getElementById('fgGlobalLegend');
+        if (!legendCard) return;
+        const conflictItem = legendCard.querySelector('.fg-legend-conflict');
+        if (conflictItem) {
+            conflictItem.classList.toggle('active', this.onlyConflicts);
+        }
     }
 
     computeTimelineBounds() {
@@ -199,9 +318,10 @@ class FleetGanttViewer {
         this.totalHours = Math.max(24, Math.ceil((this.endDate.getTime() - this.startDate.getTime()) / 3600000));
     }
 
-    // Detección general: dos tareas chocan si se solapan en tiempo y comparten cualquier ID de recurso
     detectClientConflicts() {
         const tasks = this.rawSchedule.tasks;
+        let totalConflicts = 0;
+
         for (let i = 0; i < tasks.length; i++) {
             const t1 = tasks[i];
             if (t1.status === 'cancelado') continue;
@@ -225,10 +345,19 @@ class FleetGanttViewer {
                     }
                 }
             }
+            if (t1.hasConflict) totalConflicts++;
+        }
+
+        const badge = document.getElementById(`${this.containerId}_conflictBadge`);
+        if (badge) {
+            badge.innerText = totalConflicts;
+            const conflictBtn = document.getElementById(`${this.containerId}_conflictToggle`);
+            if (conflictBtn) {
+                conflictBtn.classList.toggle('has-conflicts', totalConflicts > 0);
+            }
         }
     }
 
-    // Construye la línea de tiempo de un recurso calculando los huecos "Libres"
     buildResourceTimeline(resourceId) {
         const assigned = [];
         this.rawSchedule.tasks.forEach(t => {
@@ -325,6 +454,20 @@ class FleetGanttViewer {
         return Math.max(laneEndTimes.length, 1);
     }
 
+    getStatusIcon(status) {
+        switch (status) {
+            case 'en_viaje': return '&#128666;';
+            case 'en_carga': return '&#128230;';
+            case 'mantenimiento': return '&#128295;';
+            case 'averiado': return '&#9940;';
+            case 'descanso': return '&#9749;';
+            case 'retrasado': return '&#9200;';
+            case 'cancelado': return '&#10060;';
+            case 'reservado': return '&#128274;';
+            default: return '';
+        }
+    }
+
     render() {
         const cId = this.containerId;
         const sidebar = document.getElementById(`${cId}_sidebar`);
@@ -339,7 +482,7 @@ class FleetGanttViewer {
         header.style.width = `${timelineWidth}px`;
         tracks.style.width = `${timelineWidth}px`;
 
-        // 1. Encabezado de Horas
+        // 1. Cabecera de horas y marcas de rejilla
         for (let h = 0; h < this.totalHours; h += this.zoomHours) {
             const tickDate = new Date(this.startDate.getTime() + h * 3600000);
             const left = h * this.hourWidth;
@@ -356,11 +499,11 @@ class FleetGanttViewer {
             const dayStr = `${String(tickDate.getDate()).padStart(2, '0')}/${String(tickDate.getMonth() + 1).padStart(2, '0')}`;
             const timeStr = `${String(tickDate.getHours()).padStart(2, '0')}:00`;
 
-            label.innerHTML = `<strong>${timeStr}</strong><br><span style="font-size:10px;color:#656d76">${dayStr}</span>`;
+            label.innerHTML = `<strong>${timeStr}</strong><br><span class="fg-tick-date">${dayStr}</span>`;
             header.appendChild(label);
         }
 
-        // 2. Filtrar Recursos
+        // 2. Agrupación y filtrado de recursos
         const resourcesByGroup = {};
         this.rawSchedule.resources.forEach(r => {
             if (this.filterType !== 'ALL' && r.type !== this.filterType) return;
@@ -378,18 +521,23 @@ class FleetGanttViewer {
             resourcesByGroup[grp].push(r);
         });
 
-        // 3. Renderizar Filas
+        // 3. Renderizado de filas perfectamente alineadas
         Object.keys(resourcesByGroup).forEach(groupName => {
+            const groupList = resourcesByGroup[groupName];
+
+            // Cabecera del grupo en sidebar
             const groupDiv = document.createElement('div');
             groupDiv.className = 'fg-resource-group';
-            groupDiv.innerText = groupName;
+            groupDiv.innerHTML = `<span>${groupName}</span> <span class="fg-group-badge">${groupList.length}</span>`;
             sidebar.appendChild(groupDiv);
 
+            // Espaciador de grupo en timeline (mismo alto exacto)
             const spacer = document.createElement('div');
             spacer.className = 'fg-track-group-spacer';
+            spacer.style.width = `${timelineWidth}px`;
             tracks.appendChild(spacer);
 
-            resourcesByGroup[groupName].forEach(resource => {
+            groupList.forEach(resource => {
                 let resTasks = this.buildResourceTimeline(resource.id);
 
                 if (this.filterStatus !== 'ALL') {
@@ -419,16 +567,26 @@ class FleetGanttViewer {
 
                 const numLanes = this.assignLanes(realTasks);
                 const hasLocalCollisions = localOverlappingIds.size > 0;
-                const laneStep = 24;
-                const rowHeight = hasLocalCollisions ? (numLanes * laneStep + 8) : 44;
+                
+                // Alturas ergonómicas y bien proporcionadas
+                const laneStep = 28;
+                const barHeight = hasLocalCollisions ? 22 : 28;
+                const rowHeight = hasLocalCollisions ? (numLanes * laneStep + 10) : 46;
 
+                // Fila en el sidebar
                 const resRow = document.createElement('div');
                 resRow.className = 'fg-resource-row';
                 resRow.style.height = `${rowHeight}px`;
                 resRow.title = resource.name;
-                resRow.innerText = resource.name;
+
+                let laneBadge = '';
+                if (hasLocalCollisions && numLanes > 1) {
+                    laneBadge = `<span class="fg-lane-badge" title="${numLanes} actividades solapadas">&#9888;&#65039; ${numLanes} lanes</span>`;
+                }
+                resRow.innerHTML = `<span class="fg-resource-name">${resource.name}</span>${laneBadge}`;
                 sidebar.appendChild(resRow);
 
+                // Fila en el timeline
                 const trackRow = document.createElement('div');
                 trackRow.className = 'fg-track-row';
                 trackRow.style.height = `${rowHeight}px`;
@@ -442,21 +600,19 @@ class FleetGanttViewer {
                     const durationHours = (tEnd - tStart) / 3600000;
 
                     const leftPx = leftHours * this.hourWidth;
-                    const widthPx = Math.max(durationHours * this.hourWidth, 24);
+                    const widthPx = Math.max(durationHours * this.hourWidth, 18);
 
                     const hasLocalOverlap = localOverlappingIds.has(task.id);
                     const isCompact = hasLocalOverlap;
 
-                    let barHeight;
-                    if (task.isFreeBlock) {
-                        barHeight = 26;
-                    } else {
-                        barHeight = isCompact ? 20 : 32;
-                    }
-
                     let topPx;
-                    if (isCompact) {
-                        topPx = (task._lane || 0) * laneStep + 4;
+                    let currentBarHeight = barHeight;
+
+                    if (task.isFreeBlock) {
+                        currentBarHeight = rowHeight - 8;
+                        topPx = 4;
+                    } else if (isCompact) {
+                        topPx = (task._lane || 0) * laneStep + 5;
                     } else {
                         topPx = Math.round((rowHeight - barHeight) / 2);
                     }
@@ -466,19 +622,22 @@ class FleetGanttViewer {
                     const compactClass = isCompact ? ' fg-bar-compact' : '';
                     bar.className = `fg-bar fg-status-${task.status}${conflictClass}${compactClass}`;
 
-                    // Color personalizado opcional si viene definido directamente en la tarea
-                    if (task.color && !task.isFreeBlock) {
-                        bar.style.backgroundColor = task.color;
-                    }
-
                     bar.style.left = `${leftPx}px`;
                     bar.style.width = `${widthPx}px`;
                     bar.style.top = `${topPx}px`;
-                    bar.style.height = `${barHeight}px`;
+                    bar.style.height = `${currentBarHeight}px`;
                     bar.setAttribute('data-task-id', task.id);
 
-                    const conflictIcon = task.hasConflict ? '⚠️ ' : '';
-                    bar.innerHTML = `${conflictIcon}${task.name}`;
+                    if (task.isFreeBlock) {
+                        // Limpieza visual: no saturar con "Disponible" en bloques pequeños
+                        if (widthPx >= 110) {
+                            bar.innerHTML = `<span class="fg-free-text">Disponible (${durationHours.toFixed(1)}h)</span>`;
+                        }
+                    } else {
+                        const icon = this.getStatusIcon(task.status);
+                        const conflictIcon = task.hasConflict ? '<span class="fg-icon-conflict">&#9888;&#65039;</span>' : '';
+                        bar.innerHTML = `${conflictIcon}<span class="fg-bar-icon">${icon}</span><span class="fg-bar-title">${task.name}</span>`;
+                    }
 
                     bar.addEventListener('mouseenter', (e) => {
                         this.showTooltip(e, task, resource, hasLocalOverlap);
@@ -509,7 +668,6 @@ class FleetGanttViewer {
         matchingBars.forEach(b => b.classList.toggle('fg-bar-highlighted', highlight));
     }
 
-    // Tooltip reflexivo: itera sobre cualquier campo de details dinámicamente
     showTooltip(e, task, resource, hasLocalOverlap) {
         const tt = document.getElementById(`${this.containerId}_tooltip`);
         if (!tt) return;
@@ -520,40 +678,40 @@ class FleetGanttViewer {
             const diffHours = ((this.parseDate(task.end).getTime() - this.parseDate(task.start).getTime()) / 3600000).toFixed(1);
 
             tt.innerHTML = `
-                <div style="font-weight:bold;font-size:13px;border-bottom:1px solid #444;padding-bottom:3px;margin-bottom:4px;color:#7ee787;">
-                    DISPONIBLE
+                <div class="fg-tt-header fg-tt-free-header">
+                    <span>&#9898; HUECO DISPONIBLE</span>
+                    <span class="fg-tt-duration">${diffHours} h</span>
                 </div>
-                <div><strong>Recurso:</strong> ${resource.name}</div>
-                <div><strong>Horario:</strong> ${startStr} &rarr; ${endStr}</div>
-                <div><strong>Tiempo disponible:</strong> ${diffHours} h</div>
+                <div class="fg-tt-body">
+                    <div class="fg-tt-row"><strong>Recurso:</strong> <span>${resource.name}</span></div>
+                    <div class="fg-tt-row"><strong>Tramo:</strong> <span>${startStr} &#8594; ${endStr}</span></div>
+                </div>
             `;
             tt.style.display = 'block';
             this.moveTooltip(e);
             return;
         }
 
-        let conflictMsg = '';
+        let conflictBanner = '';
         if (task.hasConflict) {
             if (hasLocalOverlap) {
-                conflictMsg = '<div style="color:#ff6b6b;font-weight:bold;margin-bottom:4px;">⚠️ Conflicto: Solapamiento directo en este recurso</div>';
+                conflictBanner = '<div class="fg-tt-conflict-alert">&#9888;&#65039; Conflicto directo: Solapamiento en este recurso</div>';
             } else {
-                conflictMsg = '<div style="color:#f0883e;font-weight:bold;margin-bottom:4px;">⚠️ Conflicto en otro recurso compartido de esta tarea</div>';
+                conflictBanner = '<div class="fg-tt-conflict-warn">&#9888;&#65039; Aviso: Conflicto en otro recurso asociado (conductor o plataforma)</div>';
             }
         }
 
         const statusLabel = (task.status || '').replace(/_/g, ' ').toUpperCase();
 
-        // Renderizado dinámico reflexivo de cualquier propiedad en details
         let detailsHtml = '';
         if (task.details && typeof task.details === 'object') {
             Object.entries(task.details).forEach(([key, val]) => {
                 if (val !== null && val !== undefined && val !== '') {
-                    detailsHtml += `<div><strong>${key}:</strong> ${val}</div>`;
+                    detailsHtml += `<div class="fg-tt-row"><strong>${key}:</strong> <span>${val}</span></div>`;
                 }
             });
         }
 
-        // Mostrar lista de todos los recursos vinculados
         const assignedResNames = (task.resourceIds || [])
             .map(id => {
                 const res = this.rawSchedule.resources.find(r => r.id === id);
@@ -561,15 +719,20 @@ class FleetGanttViewer {
             })
             .join(', ');
 
+        const durationHours = ((this.parseDate(task.end).getTime() - this.parseDate(task.start).getTime()) / 3600000).toFixed(1);
+
         tt.innerHTML = `
-            ${conflictMsg}
-            <div style="font-weight:bold;font-size:13px;border-bottom:1px solid #444;padding-bottom:3px;margin-bottom:4px;">
-                ${task.name} (${statusLabel})
+            ${conflictBanner}
+            <div class="fg-tt-header fg-tt-status-${task.status}">
+                <span>${task.name}</span>
+                <span class="fg-tt-badge">${statusLabel}</span>
             </div>
-            <div><strong>Fila actual:</strong> ${resource.name}</div>
-            <div><strong>Horario:</strong> ${this.formatDate(task.start)} &rarr; ${this.formatDate(task.end)}</div>
-            ${assignedResNames ? `<div><strong>Recursos asignados:</strong> ${assignedResNames}</div>` : ''}
-            ${detailsHtml}
+            <div class="fg-tt-body">
+                <div class="fg-tt-row"><strong>Fila activa:</strong> <span>${resource.name}</span></div>
+                <div class="fg-tt-row"><strong>Horario:</strong> <span>${this.formatDate(task.start)} &#8594; ${this.formatTimeOnly(task.end)} (${durationHours}h)</span></div>
+                ${assignedResNames ? `<div class="fg-tt-row"><strong>Asignados:</strong> <span>${assignedResNames}</span></div>` : ''}
+                ${detailsHtml}
+            </div>
         `;
         tt.style.display = 'block';
         this.moveTooltip(e);
@@ -578,8 +741,22 @@ class FleetGanttViewer {
     moveTooltip(e) {
         const tt = document.getElementById(`${this.containerId}_tooltip`);
         if (!tt) return;
-        tt.style.left = `${e.clientX + 15}px`;
-        tt.style.top = `${e.clientY + 15}px`;
+
+        const ttWidth = tt.offsetWidth || 280;
+        const ttHeight = tt.offsetHeight || 140;
+
+        let left = e.clientX + 16;
+        let top = e.clientY + 16;
+
+        if (left + ttWidth > window.innerWidth - 12) {
+            left = e.clientX - ttWidth - 12;
+        }
+        if (top + ttHeight > window.innerHeight - 12) {
+            top = e.clientY - ttHeight - 12;
+        }
+
+        tt.style.left = `${Math.max(10, left)}px`;
+        tt.style.top = `${Math.max(10, top)}px`;
     }
 
     hideTooltip() {
@@ -587,7 +764,6 @@ class FleetGanttViewer {
         if (tt) tt.style.display = 'none';
     }
 
-    // Modal reflexivo: genera una fila de visualización por cada clave del objeto details
     openTaskModal(task, resource) {
         const cId = this.containerId;
         document.getElementById(`${cId}_modalTitle`).innerText = task.name;
@@ -608,13 +784,17 @@ class FleetGanttViewer {
             })
             .join(' | ');
 
+        const durationHours = ((this.parseDate(task.end).getTime() - this.parseDate(task.start).getTime()) / 3600000).toFixed(1);
+
         document.getElementById(`${cId}_modalBody`).innerHTML = `
             <div class="fg-modal-row"><span class="fg-modal-label">ID Actividad:</span><span>${task.id}</span></div>
-            <div class="fg-modal-row"><span class="fg-modal-label">Estado:</span><span style="font-weight:bold">${task.status}</span></div>
-            <div class="fg-modal-row"><span class="fg-modal-label">Fila visible:</span><span>${resource.name} (${resource.type || 'N/A'})</span></div>
+            <div class="fg-modal-row"><span class="fg-modal-label">Estado:</span><span class="fg-modal-status-badge fg-status-${task.status}">${task.status.toUpperCase()}</span></div>
+            <div class="fg-modal-row"><span class="fg-modal-label">Recurso actual:</span><span>${resource.name} (${resource.type || 'N/A'})</span></div>
             <div class="fg-modal-row"><span class="fg-modal-label">Inicio:</span><span>${this.formatDate(task.start)}</span></div>
             <div class="fg-modal-row"><span class="fg-modal-label">Fin:</span><span>${this.formatDate(task.end)}</span></div>
-            <div class="fg-modal-row"><span class="fg-modal-label">Recursos:</span><span>${assignedResList || 'Ninguno'}</span></div>
+            <div class="fg-modal-row"><span class="fg-modal-label">Duraci&#243;n total:</span><span>${durationHours} horas</span></div>
+            <div class="fg-modal-row"><span class="fg-modal-label">Equipo asignado:</span><span>${assignedResList || 'Ninguno'}</span></div>
+            ${task.hasConflict ? `<div class="fg-modal-row fg-modal-alert"><span class="fg-modal-label">&#9888;&#65039; Conflicto:</span><span>Solapamiento temporal detectado con otra actividad</span></div>` : ''}
             ${dynamicRows}
         `;
 

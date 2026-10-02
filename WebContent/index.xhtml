@@ -2,162 +2,60 @@
 <html xmlns="http://www.w3.org/1999/xhtml"
       xmlns:h="http://xmlns.jcp.org/jsf/html"
       xmlns:f="http://xmlns.jcp.org/jsf/core"
-      xmlns:ui="http://xmlns.jcp.org/jsf/facelets"
-      xmlns:fg="http://xmlns.jcp.org/jsf/composite/fleetgantt">
-
+      xmlns:fleet="http://xmlns.jcp.org/jsf/composite/fleetgantt">
 <h:head>
-    <title>Monitor de Ocupación de Flota | Visor Gantt</title>
+    <title>Men&#250; servicio &#8594; Monitor de ocupaci&#243;n de flota</title>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    
-    <style>
-        /* Estilos generales del contenedor de la página */
-        body {
-            margin: 0;
-            padding: 20px 24px;
-            background-color: #f0f2f5;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            color: #1f2328;
-            box-sizing: border-box;
-        }
-
-        .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-        }
-
-        .page-title {
-            margin: 0;
-            font-size: 22px;
-            font-weight: 700;
-            color: #1f2328;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .page-subtitle {
-            margin: 4px 0 0 0;
-            font-size: 13px;
-            color: #656d76;
-        }
-
-        /* Barra de leyenda de estados */
-        .legend-card {
-            background: #ffffff;
-            border: 1px solid #d0d7de;
-            border-radius: 8px;
-            padding: 12px 16px;
-            margin-bottom: 16px;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 14px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-        }
-
-        .legend-title {
-            font-size: 12px;
-            font-weight: 700;
-            color: #57606a;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-right: 4px;
-        }
-
-        .legend-item {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            color: #333333;
-            font-weight: 500;
-        }
-
-        .legend-badge {
-            width: 14px;
-            height: 14px;
-            border-radius: 3px;
-            display: inline-block;
-            box-sizing: border-box;
-        }
-
-        /* Badges de estados según especificación */
-        .badge-en-viaje      { background-color: #4CAF50; }
-        .badge-en-carga      { background-color: #2196F3; }
-        .badge-mantenimiento { background-color: #FF9800; }
-        .badge-averiado      { background-color: #F44336; }
-        .badge-descanso      { background-color: #9C27B0; }
-        .badge-retrasado     { background-color: #FF5722; }
-        .badge-cancelado     { background-color: #9E9E9E; }
-        .badge-libre         { background-color: #E0E0E0; border: 1px solid #ccc; }
-        .badge-reservado     { background-color: #FFC107; }
-
-        /* Badge de solapamiento/conflicto */
-        .badge-conflict {
-            background-color: #fce8e6;
-            border: 2px solid #D32F2F;
-            background-image: repeating-linear-gradient(
-                45deg,
-                rgba(211, 47, 47, 0.35),
-                rgba(211, 47, 47, 0.35) 2px,
-                transparent 2px,
-                transparent 4px
-            );
-        }
-
-        .main-card {
-            background: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-            overflow: hidden;
-        }
-    </style>
 </h:head>
+<h:body class="fg-app-body">
 
-<h:body>
+    <!-- 1. Título corporativo Transkal -->
+    <div class="fg-page-header">
+        <span class="tk-title-prefix">Men&#250; servicio</span>
+        <span class="tk-title-arrow">&#8594;</span>
+        <span class="tk-title-main">Monitor de ocupaci&#243;n de flota</span>
+    </div>
 
-    <!-- Encabezado de la Pantalla -->
-    <div class="page-header">
-        <div>
-            <h1 class="page-title">
-                🚛 Monitor de Ocupación de Flota
-            </h1>
-            <p class="page-subtitle">
-                Visualización en tiempo real de tractores, plataformas y conductores con detección de solapamientos
-            </p>
+    <!-- 2. Caja de Leyenda con fondo Transkal y chips interactivos -->
+    <div class="fg-legend-card" id="fgGlobalLegend">
+        <span class="fg-legend-title">ESTADOS:</span>
+        <div class="fg-legend-item" data-status="en_viaje" title="Filtrar por En viaje">
+            <span class="fg-legend-swatch fg-status-en_viaje"></span> En viaje
+        </div>
+        <div class="fg-legend-item" data-status="en_carga" title="Filtrar por En carga">
+            <span class="fg-legend-swatch fg-status-en_carga"></span> En carga
+        </div>
+        <div class="fg-legend-item" data-status="mantenimiento" title="Filtrar por Mantenimiento">
+            <span class="fg-legend-swatch fg-status-mantenimiento"></span> Mantenimiento
+        </div>
+        <div class="fg-legend-item" data-status="averiado" title="Filtrar por Averiado">
+            <span class="fg-legend-swatch fg-status-averiado"></span> Averiado
+        </div>
+        <div class="fg-legend-item" data-status="descanso" title="Filtrar por Descanso">
+            <span class="fg-legend-swatch fg-status-descanso"></span> Descanso
+        </div>
+        <div class="fg-legend-item" data-status="retrasado" title="Filtrar por Retrasado">
+            <span class="fg-legend-swatch fg-status-retrasado"></span> Retrasado
+        </div>
+        <div class="fg-legend-item" data-status="cancelado" title="Filtrar por Cancelado">
+            <span class="fg-legend-swatch fg-status-cancelado"></span> Cancelado
+        </div>
+        <div class="fg-legend-item" data-status="libre" title="Filtrar por Libre">
+            <span class="fg-legend-swatch fg-status-libre"></span> Libre
+        </div>
+        <div class="fg-legend-item" data-status="reservado" title="Filtrar por Reservado">
+            <span class="fg-legend-swatch fg-status-reservado"></span> Reservado
+        </div>
+        <div class="fg-legend-item fg-legend-conflict" data-action="conflict" title="Filtrar actividades en conflicto">
+            <span class="fg-legend-swatch fg-swatch-conflict"></span> Solapamiento (Conflicto)
         </div>
     </div>
 
-    <!-- Leyenda de Estados y Alertas -->
-    <div class="legend-card">
-        <span class="legend-title">Estados:</span>
-        <span class="legend-item"><span class="legend-badge badge-en-viaje"></span> En viaje</span>
-        <span class="legend-item"><span class="legend-badge badge-en-carga"></span> En carga</span>
-        <span class="legend-item"><span class="legend-badge badge-mantenimiento"></span> Mantenimiento</span>
-        <span class="legend-item"><span class="legend-badge badge-averiado"></span> Averiado</span>
-        <span class="legend-item"><span class="legend-badge badge-descanso"></span> Descanso</span>
-        <span class="legend-item"><span class="legend-badge badge-retrasado"></span> Retrasado</span>
-        <span class="legend-item"><span class="legend-badge badge-cancelado"></span> Cancelado</span>
-        <span class="legend-item"><span class="legend-badge badge-libre"></span> Libre</span>
-        <span class="legend-item"><span class="legend-badge badge-reservado"></span> Reservado</span>
-        <span class="legend-item" style="margin-left: 8px; font-weight: 600; color: #b71c1c;">
-            <span class="legend-badge badge-conflict"></span> Solapamiento (Conflicto)
-        </span>
-    </div>
-
-    <!-- Contenedor del Componente Gantt Autónomo -->
-    <div class="main-card">
-        <!-- 
-            Llamada al Composite Component ubicado en:
-            /WebContent/resources/fleetgantt/viewer.xhtml
-        -->
-        <fg:viewer id="fleetGanttMonitor" 
-                   data="#{fleetGanttBean.fleetScheduleJson}" 
-                   height="700px" />
-    </div>
+    <!-- 3. Visor Gantt de Flota -->
+    <fleet:viewer id="ganttFlota"
+                  data="#{fleetGanttBean.fleetScheduleJson}"
+                  height="calc(100vh - 110px)" />
 
 </h:body>
 </html>
