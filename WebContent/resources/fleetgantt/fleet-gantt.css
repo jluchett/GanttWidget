@@ -17,8 +17,6 @@
     --fg-bg-page: #F3F4F6;
 
     /* PALETA EQUILIBRADA DE ESTADOS (Nítida, contrastada y legible) */
-    --color-viaje-bg: #16A34A;
-    --color-viaje-border: #15803D;
 
     --color-carga-bg: #0284C7;
     --color-carga-border: #0369A1;
@@ -26,7 +24,7 @@
     --color-mant-bg: #EA580C;
     --color-mant-border: #C2410C;
 
-    --color-averia-bg: #DC2626;
+    --color-averia-bg: #e64141;
     --color-averia-border: #B91C1C;
 
     --color-descanso-bg: #8B5CF6;
@@ -142,7 +140,7 @@ body.fg-app-body {
 }
 
 /* Colores de swatch vinculados */
-.fg-legend-swatch.fg-status-en_viaje      { background-color: var(--color-viaje-bg); }
+.fg-legend-swatch.fg-status-en_viaje      { background-color: var(--tk-olive); }
 .fg-legend-swatch.fg-status-en_carga      { background-color: var(--color-carga-bg); }
 .fg-legend-swatch.fg-status-mantenimiento { background-color: var(--color-mant-bg); }
 .fg-legend-swatch.fg-status-averiado      { background-color: var(--color-averia-bg); }
@@ -576,8 +574,8 @@ body.fg-app-body {
 
 /* Estados */
 .fg-status-en_viaje {
-    background-color: var(--color-viaje-bg);
-    border-color: var(--color-viaje-border);
+    background-color: var(--tk-olive);
+    border-color: var(--tk-olive-dark);
 }
 
 .fg-status-en_carga {
